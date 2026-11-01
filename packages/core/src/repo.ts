@@ -16,6 +16,7 @@ export interface HabitRecord {
   startDate: LogicalDate;
   templateId?: string;
   reminderTime?: string;
+  reminderTimes?: string[];
   icon?: string; // one emoji
   color?: Hue; // unset = green
   step?: number; // amount one tap adds (quantitative); unset = about a tenth of target
@@ -52,6 +53,7 @@ export type HabitPatch = Partial<
     | 'schedule'
     | 'startDate'
     | 'reminderTime'
+    | 'reminderTimes'
     | 'icon'
     | 'color'
     | 'step'

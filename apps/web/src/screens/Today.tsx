@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   canLog,
   checkIn,
@@ -16,6 +16,7 @@ import { summarize } from '@habit/core/summary';
 import { HabitDetailModal } from '../components/HabitDetailModal.tsx';
 import { HabitRow } from '../components/HabitRow.tsx';
 import { Heatmap } from '../components/Heatmap.tsx';
+import { Calendar } from '../components/Calendar.tsx';
 import { repo } from '../repo-local.ts';
 
 export function Today({
@@ -34,7 +35,10 @@ export function Today({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailHabit, setDetailHabit] = useState<HabitRecord | null>(null);
   const [viewArchived, setViewArchived] = useState(false);
+  const [view, setView] = useState<'habits' | 'journal' | 'calendar'>('habits');
+  const [journalHabit, setJournalHabit] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const running = useRef(false);
   const date = addDays(today, -offset);
 
   const reload = useCallback(async () => {
@@ -53,18 +57,26 @@ export function Today({
   useEffect(() => repo.subscribe(() => void reload()), [reload]);
 
   const run = async (action: () => Promise<void>) => {
+    if (running.current) return;
+    running.current = true;
     try {
       setError(null);
       await action();
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      running.current = false;
     }
   };
 
   const activeHabits = useMemo(() => habits.filter((h) => !h.archivedAt), [habits]);
   const archivedHabits = useMemo(() => habits.filter((h) => !!h.archivedAt), [habits]);
   const displayedHabits = viewArchived ? archivedHabits : activeHabits;
+  const journal = habits.flatMap((habit) => (logs[habit.id] ?? [])
+    .filter((log) => !log.deletedAt && log.note?.trim() && (!journalHabit || habit.id === journalHabit))
+    .map((log) => ({ habit, log })))
+    .sort((a, b) => b.log.logicalDate.localeCompare(a.log.logicalDate) || b.log.occurredAt.localeCompare(a.log.occurredAt));
 
   const rows = useMemo(
     () => displayedHabits.map((habit) => ({ habit, summary: summarize(habit, logs[habit.id] ?? [], date, today) })),
@@ -107,6 +119,34 @@ export function Today({
 
   return (
     <>
+      <nav className="view-toggle" aria-label="Habit views">
+        <button type="button" className={view === 'habits' ? 'active' : ''} aria-pressed={view === 'habits'} onClick={() => setView('habits')}>Habits</button>
+        <button type="button" className={view === 'journal' ? 'active' : ''} aria-pressed={view === 'journal'} onClick={() => setView('journal')}>Journal</button>
+        <button type="button" className={view === 'calendar' ? 'active' : ''} aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>Calendar</button>
+      </nav>
+      {view === 'calendar' ? <Calendar today={today} habits={habits} logs={logs} /> : view === 'journal' ? (
+        <section className="card">
+          <h2>Journal</h2>
+          <label>Habit{' '}
+            <select value={journalHabit} onChange={(e) => setJournalHabit(e.target.value)}>
+              <option value="">All habits</option>
+              {habits.map((habit) => <option key={habit.id} value={habit.id}>{habit.name}{habit.archivedAt ? ' (Archived)' : ''}</option>)}
+            </select>
+          </label>
+          {journal.length === 0 ? <p>No notes yet. Add a note in a habit's details when checking in.</p> : (
+            <ul className="history-list">
+              {journal.map(({ habit, log }) => (
+                <li key={log.id} className="history-item">
+                  <strong>{habit.icon} {habit.name}</strong>{' · '}
+                  <time dateTime={log.logicalDate}>{log.logicalDate}</time>{' · '}
+                  <span>{log.kind === 'complete' ? 'Check-in' : log.kind === 'skip' ? 'Skipped' : 'Frozen'}</span>
+                  <p>{log.note}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : (<>
       <div className="datebar">
         <button aria-label="Previous day" disabled={offset >= RETRO_DAYS} onClick={() => setOffset(offset + 1)}>
           ‹
@@ -185,15 +225,15 @@ export function Today({
             setDetailHabit(null);
             onEdit?.(h);
           }}
-          onToggle={() =>
+          onToggle={(note) =>
             run(() => {
               const summary = summarize(detailHabit, logs[detailHabit.id] ?? [], date, today);
               return summary.done
                 ? clearDay(repo, detailHabit, date)
-                : checkIn(repo, detailHabit, date, today);
+                : checkIn(repo, detailHabit, date, today, new Date(), note);
             })
           }
-          onPlus={() => run(() => checkIn(repo, detailHabit, date, today))}
+          onPlus={(note) => run(() => checkIn(repo, detailHabit, date, today, new Date(), note))}
           onMinus={() => run(() => undoCheckIn(repo, detailHabit, date))}
           onSkip={(note) => run(() => skipDay(repo, detailHabit, date, today, note))}
           onFreeze={(note) => run(() => freezeDay(repo, detailHabit, date, today, note))}
@@ -214,6 +254,7 @@ export function Today({
           }
         />
       )}
+      </>)}
     </>
   );
 }

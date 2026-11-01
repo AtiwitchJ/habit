@@ -149,6 +149,12 @@ details summary { cursor: pointer; color: var(--muted); font-weight: 700; margin
   font-weight: 700;
 }
 
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
+.calendar-grid strong { font-size: .75rem; }
+.calendar-grid button { min-width: 0; padding: 8px 2px; }
+.calendar-grid button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.calendar-grid small { display: block; font-size: .7rem; }
+
 /* Modal and Detail Dialogs */
 .modal-backdrop {
   position: fixed;

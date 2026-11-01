@@ -379,7 +379,7 @@ export function AddHabit({
                 <div className="preset-variant-chips" onClick={(e) => e.stopPropagation()}>
                   {preset.options.map((opt, idx) => (
                     <button
-                      key={opt.unit}
+                      key={`${opt.unit}-${opt.target}`}
                       type="button"
                       className={`variant-pill ${currentVariant === idx ? 'active' : ''}`}
                       onClick={() =>

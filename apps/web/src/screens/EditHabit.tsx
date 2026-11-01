@@ -44,7 +44,7 @@ export function EditHabit({
     habit.schedule.type === 'times_per_week' ? habit.schedule.count : 3,
   );
   const [startDate, setStartDate] = useState(habit.startDate);
-  const [reminderTime, setReminderTime] = useState(habit.reminderTime ?? '');
+  const [reminderTimes, setReminderTimes] = useState<string[]>(habit.reminderTimes ?? (habit.reminderTime ? [habit.reminderTime] : []));
   const [error, setError] = useState<string | null>(null);
 
   const toggleDay = (day: number) => {
@@ -75,6 +75,8 @@ export function EditHabit({
     if (startDate > today || startDate < addDays(today, -RETRO_DAYS)) {
       return setError(`Start date must be within the last ${RETRO_DAYS} days.`);
     }
+    if (reminderTimes.some((time) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) return setError('Choose a valid time for each reminder.');
+    if (new Set(reminderTimes).size !== reminderTimes.length) return setError('Reminder times must be different.');
 
     await repo.updateHabit(habit.id, {
       name: trimmedName,
@@ -86,7 +88,8 @@ export function EditHabit({
       step: kind === 'quantitative' && step !== '' ? Number(step) : undefined,
       schedule: computeSchedule(),
       startDate,
-      reminderTime: reminderTime || undefined,
+      reminderTime: reminderTimes[0],
+      reminderTimes: [...reminderTimes].sort(),
     });
     onDone();
   }
@@ -242,10 +245,18 @@ export function EditHabit({
         />
       </label>
 
-      <label className="field">
-        <span>Reminder time</span>
-        <input type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} />
-      </label>
+      <div className="field">
+        <span>Reminder times</span>
+        {reminderTimes.map((time, index) => (
+          <div className="actions" key={index}>
+            <label>Reminder {index + 1}{' '}
+              <input type="time" value={time} onChange={(e) => setReminderTimes((times) => times.map((value, i) => i === index ? e.target.value : value))} />
+            </label>
+            <button type="button" onClick={() => setReminderTimes((times) => times.filter((_, i) => i !== index))}>Remove reminder {index + 1}</button>
+          </div>
+        ))}
+        <button type="button" onClick={() => setReminderTimes((times) => [...times, ''])}>Add reminder</button>
+      </div>
 
       {error && <p className="error">{error}</p>}
 

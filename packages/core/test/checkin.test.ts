@@ -46,6 +46,29 @@ test('quantitative: ten steps reach target, undo removes one step', async () => 
   assert.deepEqual({ value: summary.value, done: summary.done }, { value: 1800, done: false });
 });
 
+test('check-in caps the last step at the target and does not add more logs after completion', async () => {
+  const { repo, habit } = await setup({ ...water, target: 8, step: 3 });
+  for (let i = 0; i < 4; i++) await checkIn(repo, habit, TODAY, TODAY, NOW);
+  assert.deepEqual((await repo.listLogs(habit.id)).map((log) => log.value), [3, 3, 2]);
+  await undoCheckIn(repo, habit, TODAY);
+  assert.equal(summarize(habit, await repo.listLogs(habit.id), TODAY, TODAY).value, 6);
+  await checkIn(repo, habit, TODAY, TODAY, NOW);
+  assert.equal(summarize(habit, await repo.listLogs(habit.id), TODAY, TODAY).value, 8);
+});
+
+test('concurrent check-ins against the same repository cannot exceed the target', async () => {
+  const { repo, habit } = await setup({ ...water, target: 8, step: 3 });
+  await Promise.all(Array.from({ length: 8 }, () => checkIn(repo, habit, TODAY, TODAY, NOW)));
+  assert.equal((await repo.listLogs(habit.id)).reduce((sum, log) => sum + log.value, 0), 8);
+});
+
+test('check-in does not add to a day that already exceeds its edited target', async () => {
+  const { repo, habit } = await setup({ ...water, target: 10, step: 10 });
+  await checkIn(repo, habit, TODAY, TODAY, NOW);
+  await checkIn(repo, { ...habit, target: 8 }, TODAY, TODAY, NOW);
+  assert.equal((await repo.listLogs(habit.id)).length, 1);
+});
+
 test('retroactive check-in is flagged and updates the streak', async () => {
   const { repo, habit } = await setup(meditate);
   await checkIn(repo, habit, '2026-10-29', TODAY, NOW);
@@ -55,6 +78,12 @@ test('retroactive check-in is flagged and updates the streak', async () => {
 
   await checkIn(repo, habit, TODAY, TODAY, NOW);
   assert.equal(summarize(habit, await repo.listLogs(habit.id), TODAY, TODAY).streak.current, 2);
+});
+
+test('check-in preserves its optional note', async () => {
+  const { repo, habit } = await setup(meditate);
+  await checkIn(repo, habit, TODAY, TODAY, NOW, 'Felt focused');
+  assert.equal((await repo.listLogs(habit.id))[0].note, 'Felt focused');
 });
 
 test('clearDay removes every completion on that date only', async () => {
@@ -99,11 +128,3 @@ test('skipDay adds a skip log and freezeDay adds a freeze log', async () => {
   assert.equal(logs[0].kind, 'freeze');
 });
 
-
-test('quantitative: check-in never goes past target, last step is trimmed', async () => {
-  const { repo, habit } = await setup({ name: 'Water', kind: 'quantitative', target: 8, unit: 'glasses', step: 3, schedule: { type: 'daily' }, startDate: '2026-10-29' });
-  for (let i = 0; i < 5; i++) await checkIn(repo, habit, TODAY, TODAY, NOW);
-  const logs = await repo.listLogs(habit.id);
-  assert.equal(summarize(habit, logs, TODAY, TODAY).value, 8); // 3 + 3 + 2, then no-ops
-  assert.equal(logs.length, 3);
-});

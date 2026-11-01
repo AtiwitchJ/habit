@@ -8,6 +8,7 @@ import { AddHabit } from './screens/AddHabit.tsx';
 import { EditHabit } from './screens/EditHabit.tsx';
 import { Login } from './screens/Login.tsx';
 import { Today } from './screens/Today.tsx';
+import { startReminders } from './reminders.ts';
 import { browserTimeZone, loadRolloverMinutes, saveRolloverMinutes } from './settings.ts';
 import { startSync, type SyncStatus } from './sync-runner.ts';
 
@@ -24,6 +25,7 @@ export function App() {
   const [user, setUser] = useState(() => (pb?.authStore.isValid ? pb.authStore.record : null));
   const [guest, setGuestState] = useState(isGuest);
   const [status, setStatus] = useState<SyncStatus>({ state: 'syncing' });
+  const [notificationPermission, setNotificationPermission] = useState(() => 'Notification' in window ? Notification.permission : 'unsupported');
   const [, tick] = useState(0);
 
   // Re-evaluate the logical date every minute so the day flips while the app stays open.
@@ -48,6 +50,11 @@ export function App() {
   const { boundary, warning } = useMemo(() => safeBoundary(browserTimeZone(), rolloverMinutes), [rolloverMinutes]);
   const today = currentLogicalDate(boundary);
   const needsLogin = !user && !guest;
+
+  useEffect(() => {
+    if ((pb && needsLogin) || notificationPermission !== 'granted') return;
+    return startReminders(boundary);
+  }, [boundary, needsLogin, notificationPermission]);
 
   const chooseGuest = (value: boolean) => {
     setGuest(value);
@@ -77,6 +84,15 @@ export function App() {
         </label>
       </div>
       <p className="greeting">{greeting(new Date().getHours())}</p>
+      {(!pb || !needsLogin) && (
+        <p className="banner">
+          Reminders work while this app is open. Set a reminder time when editing a habit.{' '}
+          {notificationPermission === 'default' && <button onClick={() => void Notification.requestPermission().then(setNotificationPermission)}>Enable reminders</button>}
+          {notificationPermission === 'denied' && 'Notifications are blocked in your browser settings.'}
+          {notificationPermission === 'unsupported' && 'Notifications are unavailable in this browser.'}
+          {notificationPermission === 'granted' && 'Notifications are enabled.'}
+        </p>
+      )}
       {!persistent && <p className="banner">Storage is unavailable. Your data will not persist after you close this tab.</p>}
       {warning && <p className="banner">{warning}</p>}
       {pb && user && <AccountBar pb={pb} userId={user.id} email={String(user.email ?? '')} status={status} />}

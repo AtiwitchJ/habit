@@ -2,6 +2,7 @@ import { daysBetween, type LogicalDate } from './logical-date.ts';
 import type { HabitRecord, HabitRepo } from './repo.ts';
 
 export const RETRO_DAYS = 30;
+const pendingCheckIns = new WeakMap<HabitRepo, Promise<void>>();
 
 // One tap adds this much. Boolean habits: 1. Quantitative: the habit's own step, else about a tenth of the target.
 export function stepFor(habit: Pick<HabitRecord, 'kind' | 'target' | 'step'>): number {
@@ -22,10 +23,21 @@ export async function checkIn(
   note?: string,
 ): Promise<void> {
   if (!canLog(habit, date, today)) throw new RangeError(`Cannot log ${date} for habit ${habit.id}`);
-  const done = (await repo.listLogs(habit.id))
-    .filter((log) => !log.deletedAt && log.kind === 'complete' && log.logicalDate === date)
+  const previous = pendingCheckIns.get(repo) ?? Promise.resolve();
+  const current = previous.catch(() => {}).then(() => addCheckIn(repo, habit, date, today, now, note));
+  pendingCheckIns.set(repo, current);
+  try {
+    await current;
+  } finally {
+    if (pendingCheckIns.get(repo) === current) pendingCheckIns.delete(repo);
+  }
+}
+
+async function addCheckIn(repo: HabitRepo, habit: HabitRecord, date: LogicalDate, today: LogicalDate, now: Date, note?: string): Promise<void> {
+  const logs = await repo.listLogs(habit.id);
+  const completed = logs.filter((log) => !log.deletedAt && log.kind === 'complete' && log.logicalDate === date)
     .reduce((sum, log) => sum + log.value, 0);
-  const value = Math.min(stepFor(habit), habit.target - done); // never log past target
+  const value = Math.min(stepFor(habit), habit.target - completed);
   if (value <= 0) return;
   await repo.addLog({
     habitId: habit.id,

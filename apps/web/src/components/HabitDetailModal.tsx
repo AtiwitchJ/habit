@@ -12,8 +12,8 @@ interface Props {
   selectedDate: LogicalDate;
   onClose(): void;
   onEdit(habit: HabitRecord): void;
-  onToggle(): void;
-  onPlus(): void;
+  onToggle(note?: string): void;
+  onPlus(note?: string): void;
   onMinus(): void;
   onSkip(note?: string): void;
   onFreeze(note?: string): void;
@@ -150,7 +150,7 @@ export function HabitDetailModal({
                 <div className="boolean-actions">
                   <button
                     className={`primary full ${isDone ? 'done-btn' : ''}`}
-                    onClick={onToggle}
+                    onClick={() => onToggle(note.trim() || undefined)}
                   >
                     {isDone ? '✓ Completed (tap to undo)' : 'Mark Done for this day'}
                   </button>
@@ -164,7 +164,7 @@ export function HabitDetailModal({
                     <span className={isDone ? 'done' : ''}>
                       {Math.min(daySum, habit.target)} / {habit.target} {habit.unit}
                     </span>
-                    <button disabled={isDone} onClick={onPlus}>+</button>
+                    <button aria-label={`Add one step to ${habit.name}`} disabled={isDone} onClick={() => onPlus(note.trim() || undefined)}>+</button>
                   </div>
                 </div>
               )}
@@ -206,7 +206,7 @@ export function HabitDetailModal({
                     type="text"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="Optional check-in note (e.g. sick, travel, great workout)..."
+                    placeholder="Optional note for the next check-in, skip or freeze..."
                   />
                 </div>
               )}
