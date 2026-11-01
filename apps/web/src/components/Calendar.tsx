@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { calendarDays } from '@habit/core/calendar';
+import { calendarDays, rangeStats } from '@habit/core/calendar';
 import { addDays, type LogicalDate } from '@habit/core/logical-date';
 import type { HabitRecord, LogRecord } from '@habit/core/repo';
 
@@ -7,6 +7,7 @@ export function Calendar({ today, habits, logs }: { today: LogicalDate; habits: 
   const [date, setDate] = useState(today);
   const [view, setView] = useState<'day' | 'week' | 'month'>('month');
   const days = calendarDays(date, view);
+  const stats = rangeStats(habits, logs, days[0], days[days.length - 1], today);
   const entries = habits.flatMap((habit) => (logs[habit.id] ?? [])
     .filter((log) => !log.deletedAt)
     .map((log) => ({ habit, log })));
@@ -32,6 +33,7 @@ export function Calendar({ today, habits, logs }: { today: LogicalDate; habits: 
         <button type="button" aria-label={`Next ${view}`} onClick={() => move(1)}>›</button>
         <button type="button" onClick={() => setDate(today)}>Today</button>
       </div>
+      <p aria-label="Period statistics">{stats.due === 0 ? 'No habits due in this period.' : `${stats.done}/${stats.due} done · ${stats.rate}% · ${stats.activeDays} active ${stats.activeDays === 1 ? 'day' : 'days'}`}</p>
       {view !== 'day' && <div className="calendar-grid">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label) => <strong key={label}>{label}</strong>)}
         {days.map((day) => {
