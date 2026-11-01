@@ -73,7 +73,7 @@ export interface SyncAccess {
 export type LocalRepo = HabitRepo & SyncAccess;
 
 function isValidItem(item: SyncItem): boolean {
-  const record = item?.record as Partial<HabitRecord & LogRecord> | undefined;
+  const record = item?.record as unknown as Record<string, unknown> | undefined;
   if (!record || typeof record.id !== 'string' || !record.id || typeof record.createdAt !== 'string') return false;
   if (item.entity === 'habits') return typeof record.name === 'string';
   if (item.entity === 'habit_logs') return typeof record.habitId === 'string' && typeof record.logicalDate === 'string';
@@ -185,7 +185,7 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
-const STORAGE_KEY = 'habit:v1';
+export const STORAGE_KEY = 'habit:v1';
 
 // Returns usable storage, or null (private mode, blocked cookies, quota 0).
 export function tryStorage(get: () => StorageLike): StorageLike | null {
