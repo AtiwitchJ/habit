@@ -29,6 +29,9 @@ export function Today({ today, onAdd }: { today: LogicalDate; onAdd(): void }) {
     void reload();
   }, [reload]);
 
+  // Remote changes merged by sync land in the repo; refresh when they do.
+  useEffect(() => repo.subscribe(() => void reload()), [reload]);
+
   const run = async (action: () => Promise<void>) => {
     try {
       setError(null);

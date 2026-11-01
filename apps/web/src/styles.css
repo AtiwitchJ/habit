@@ -97,6 +97,7 @@ details summary { cursor: pointer; color: var(--muted); font-weight: 700; margin
 .field { display: grid; gap: 4px; margin-bottom: 14px; }
 .field span { font-size: .85rem; color: var(--muted); font-weight: 700; }
 .actions { display: flex; gap: 8px; }
+.account { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: .85rem; color: var(--muted); margin-bottom: 12px; }
 
 @media (max-width: 420px) {
   .datebar { gap: 6px; }

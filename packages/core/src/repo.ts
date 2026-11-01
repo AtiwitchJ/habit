@@ -26,6 +26,7 @@ export interface LogRecord {
   occurredAt: string;
   isRetroactive: boolean;
   createdAt: string;
+  updatedAt?: string;
   deletedAt?: string | null;
 }
 
@@ -49,16 +50,57 @@ export interface RepoState {
   logs: LogRecord[];
 }
 
+export type SyncEntity = 'habits' | 'habit_logs';
+export interface SyncItem {
+  entity: SyncEntity;
+  record: HabitRecord | LogRecord;
+}
+
+// Last-write-wins version of a record. A tombstone later than the last update is the version.
+export function versionOf(record: { createdAt: string; updatedAt?: string; deletedAt?: string | null }): string {
+  const base = record.updatedAt ?? record.createdAt;
+  return record.deletedAt && record.deletedAt > base ? record.deletedAt : base;
+}
+
+// What a sync engine needs from a local store. snapshot() includes tombstones.
+export interface SyncAccess {
+  snapshot(): SyncItem[];
+  // Applies items that win last-write-wins. Returns how many changed local state.
+  merge(items: SyncItem[]): number;
+  subscribe(listener: () => void): () => void;
+}
+
+export type LocalRepo = HabitRepo & SyncAccess;
+
+function isValidItem(item: SyncItem): boolean {
+  const record = item?.record as unknown as Record<string, unknown> | undefined;
+  if (!record || typeof record.id !== 'string' || !record.id || typeof record.createdAt !== 'string') return false;
+  if (item.entity === 'habits') return typeof record.name === 'string';
+  if (item.entity === 'habit_logs') return typeof record.habitId === 'string' && typeof record.logicalDate === 'string';
+  return false;
+}
+
+// Newer version wins. On a tie a tombstone beats a live copy so deletes never resurrect.
+function wins(incoming: SyncItem['record'], local: SyncItem['record']): boolean {
+  const a = versionOf(incoming);
+  const b = versionOf(local);
+  return a > b || (a === b && !!incoming.deletedAt && !local.deletedAt);
+}
+
 export interface MemoryRepoOptions {
   seed?: RepoState;
   onChange?: (state: RepoState) => void;
   now?: () => Date;
 }
 
-export function createMemoryRepo(options: MemoryRepoOptions = {}): HabitRepo {
+export function createMemoryRepo(options: MemoryRepoOptions = {}): LocalRepo {
   const now = options.now ?? (() => new Date());
   const state: RepoState = options.seed ? structuredClone(options.seed) : { habits: [], logs: [] };
-  const save = () => options.onChange?.(state);
+  const listeners = new Set<() => void>();
+  const save = () => {
+    options.onChange?.(state);
+    for (const listener of listeners) listener();
+  };
 
   const liveHabit = (id: string): HabitRecord => {
     const habit = state.habits.find((h) => h.id === id && !h.deletedAt);
@@ -105,6 +147,35 @@ export function createMemoryRepo(options: MemoryRepoOptions = {}): HabitRepo {
       log.deletedAt = now().toISOString();
       save();
     },
+    snapshot() {
+      return [
+        ...state.habits.map((record) => ({ entity: 'habits' as const, record: structuredClone(record) })),
+        ...state.logs.map((record) => ({ entity: 'habit_logs' as const, record: structuredClone(record) })),
+      ];
+    },
+    merge(items) {
+      let applied = 0;
+      for (const item of items) {
+        if (!isValidItem(item)) continue;
+        const list = (item.entity === 'habits' ? state.habits : state.logs) as SyncItem['record'][];
+        const index = list.findIndex((r) => r.id === item.record.id);
+        if (index === -1) {
+          list.push(structuredClone(item.record));
+          applied++;
+        } else if (wins(item.record, list[index])) {
+          list[index] = structuredClone(item.record);
+          applied++;
+        }
+      }
+      if (applied > 0) save();
+      return applied;
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   };
 }
 
@@ -114,7 +185,7 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
-const STORAGE_KEY = 'habit:v1';
+export const STORAGE_KEY = 'habit:v1';
 
 // Returns usable storage, or null (private mode, blocked cookies, quota 0).
 export function tryStorage(get: () => StorageLike): StorageLike | null {
@@ -128,7 +199,7 @@ export function tryStorage(get: () => StorageLike): StorageLike | null {
   }
 }
 
-export function createStorageRepo(storage: StorageLike, now?: () => Date): HabitRepo {
+export function createStorageRepo(storage: StorageLike, now?: () => Date): LocalRepo {
   let seed: RepoState | undefined;
   try {
     const parsed = JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null');
