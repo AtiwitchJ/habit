@@ -18,7 +18,10 @@ export function Login({ pb, onAuthed, onSkip }: { pb: PocketBase; onAuthed(): vo
       await action();
       onAuthed();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const status = (e as { status?: number } | null)?.status;
+      if (status === 0) setError('Cannot reach the server. Check your connection and try again.');
+      else if (status === 400 && mode === 'signin') setError('Wrong email or password.');
+      else setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
