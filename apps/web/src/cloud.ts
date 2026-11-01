@@ -3,7 +3,13 @@ import { STORAGE_KEY } from '@habit/core/repo';
 import { storage } from './repo-local.ts';
 
 // No server URL means local-only mode: no login, no sync.
-const url = import.meta.env.VITE_PB_URL as string | undefined;
+// If VITE_PB_URL uses localhost, rewrite to the current hostname so other devices on the LAN/VPN can connect.
+const rawUrl = import.meta.env.VITE_PB_URL as string | undefined;
+const url = rawUrl
+  ? typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? rawUrl.replace(/localhost|127\.0\.0\.1/, window.location.hostname)
+    : rawUrl
+  : undefined;
 export const pb = url ? new PocketBase(url) : null;
 
 const OWNER_KEY = 'habit:owner';
