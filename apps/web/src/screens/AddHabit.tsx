@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { RETRO_DAYS } from '@habit/core/checkin';
 import { addDays, assertLogicalDate, type LogicalDate } from '@habit/core/logical-date';
 import type { Schedule } from '@habit/core/streak';
-import { templatesByCategory, type HabitTemplate } from '@habit/core/templates';
+import { HUES, type Hue } from '@habit/core/repo';
+import { CATEGORY_HUE, templatesByCategory, type HabitTemplate } from '@habit/core/templates';
 import { repo } from '../repo-local.ts';
 
 interface Draft {
@@ -14,8 +15,13 @@ interface Draft {
   startDate: string;
   templateId?: string;
   reminderTime?: string;
+  icon: string;
+  color: Hue;
   custom: boolean;
 }
+
+// An emoji can be several code points; keep the first user-perceived character only.
+const firstEmoji = (text: string): string => new Intl.Segmenter().segment(text.trim())[Symbol.iterator]().next().value?.segment ?? '';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -26,11 +32,11 @@ function describe(schedule: Schedule): string {
 }
 
 function fromTemplate(t: HabitTemplate, today: LogicalDate): Draft {
-  return { name: t.name, kind: t.kind, target: t.target, unit: t.unit ?? '', schedule: t.schedule, startDate: today, templateId: t.id, reminderTime: t.reminderTime, custom: false };
+  return { name: t.name, kind: t.kind, target: t.target, unit: t.unit ?? '', schedule: t.schedule, startDate: today, templateId: t.id, reminderTime: t.reminderTime, icon: t.icon, color: CATEGORY_HUE[t.category], custom: false };
 }
 
 function blankCustom(today: LogicalDate): Draft {
-  return { name: '', kind: 'boolean', target: 1, unit: '', schedule: { type: 'daily' }, startDate: today, custom: true };
+  return { name: '', kind: 'boolean', target: 1, unit: '', schedule: { type: 'daily' }, startDate: today, icon: '', color: 'green', custom: true };
 }
 
 export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDone(): void; onCancel(): void }) {
@@ -59,6 +65,8 @@ export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDo
       startDate: d.startDate,
       templateId: d.templateId,
       reminderTime: d.reminderTime,
+      icon: d.icon || undefined,
+      color: d.color,
     });
     onDone();
   }
@@ -79,6 +87,18 @@ export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDo
           <span>Name</span>
           <input value={draft.name} onChange={(e) => set({ name: e.target.value })} autoFocus />
         </label>
+        <label className="field">
+          <span>Icon (one emoji)</span>
+          <input value={draft.icon} onChange={(e) => set({ icon: firstEmoji(e.target.value) })} placeholder="🙂" />
+        </label>
+        <div className="field">
+          <span>Color</span>
+          <div className="swatches">
+            {HUES.map((hue) => (
+              <button key={hue} type="button" className={`hue-${hue}`} aria-label={hue} aria-pressed={draft.color === hue} onClick={() => set({ color: hue })} />
+            ))}
+          </div>
+        </div>
         {draft.custom && (
           <label className="field">
             <span>Type</span>
@@ -135,7 +155,10 @@ export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDo
           <h3>{category}</h3>
           {templates.map((t) => (
             <button key={t.id} className="template" onClick={() => setDraft(fromTemplate(t, today))}>
-              <span>{t.name}</span>
+              <span>
+                <i aria-hidden="true">{t.icon}</i>
+                {t.name}
+              </span>
               <small>
                 {t.kind === 'quantitative' ? `${t.target} ${t.unit}` : 'Yes / no'} · {describe(t.schedule)}
               </small>

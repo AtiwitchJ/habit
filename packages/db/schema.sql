@@ -52,6 +52,8 @@ CREATE TABLE habits (
   times_per_week  INTEGER CHECK (times_per_week BETWEEN 1 AND 7),
   start_date      TEXT NOT NULL CHECK (length(start_date) = 10),   -- logical date YYYY-MM-DD
   reminder_time   TEXT,                                          -- 'HH:MM' local wall clock; NULL = none
+  icon            TEXT,                                          -- one emoji; NULL = none
+  color           TEXT CHECK (color IN ('green', 'teal', 'blue', 'purple', 'pink', 'red', 'orange', 'yellow')),  -- NULL = green
   sort_order      REAL NOT NULL DEFAULT 0,
   archived_at     TEXT,
   field_hlc       TEXT NOT NULL DEFAULT '{}',

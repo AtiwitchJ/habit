@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HABIT_TEMPLATES, templatesByCategory } from '../src/templates.ts';
+import { createMemoryRepo, HUES } from '../src/repo.ts';
+import { CATEGORY_HUE, HABIT_TEMPLATES, templatesByCategory } from '../src/templates.ts';
 
 test('template ids are unique slugs', () => {
   const ids = HABIT_TEMPLATES.map((t) => t.id);
@@ -36,4 +37,20 @@ test('catalog mixes kinds and schedule types', () => {
   assert.ok(new Set(HABIT_TEMPLATES.map((t) => t.kind)).size === 2);
   assert.ok(new Set(HABIT_TEMPLATES.map((t) => t.schedule.type)).size === 3);
   assert.ok(new Set(HABIT_TEMPLATES.map((t) => t.unit).filter(Boolean)).size >= 10);
+});
+
+test('every template has an emoji icon and every category a hue', () => {
+  for (const t of HABIT_TEMPLATES) assert.match(t.icon, /^\p{Extended_Pictographic}/u, t.id);
+  for (const category of templatesByCategory().keys()) assert.ok(HUES.includes(CATEGORY_HUE[category]), category);
+  assert.ok(new Set(HABIT_TEMPLATES.map((t) => t.icon)).size >= 90, 'icons should be varied');
+  assert.ok(new Set(Object.values(CATEGORY_HUE)).size >= 7, 'hues should be varied');
+});
+
+test('repo stores icon and color and lets them be patched', async () => {
+  const repo = createMemoryRepo();
+  const habit = await repo.addHabit({ name: 'Swim', kind: 'boolean', target: 1, schedule: { type: 'daily' }, startDate: '2026-11-01', icon: '🏊', color: 'blue' });
+  assert.equal(habit.icon, '🏊');
+  assert.equal(habit.color, 'blue');
+  const patched = await repo.updateHabit(habit.id, { icon: '🚴', color: 'orange' });
+  assert.deepEqual([patched.icon, patched.color], ['🚴', 'orange']);
 });

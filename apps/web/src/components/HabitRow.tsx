@@ -15,9 +15,12 @@ interface Props {
 export function HabitRow({ habit, summary, canEdit, selected, onSelect, onToggle, onPlus, onMinus }: Props) {
   const unit = habit.schedule.type === 'times_per_week' ? 'wk' : 'd';
   return (
-    <li className={`row${selected ? ' selected' : ''}`}>
+    <li className={`row hue-${habit.color ?? 'green'}${selected ? ' selected' : ''}`}>
       <button className="name" onClick={onSelect}>
-        <span>{habit.name}</span>
+        <span>
+          {habit.icon && <i aria-hidden="true">{habit.icon}</i>}
+          {habit.name}
+        </span>
         <small>
           {summary.streak.current} {unit} streak
         </small>

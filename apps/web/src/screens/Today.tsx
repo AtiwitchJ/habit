@@ -113,8 +113,10 @@ export function Today({ today, onAdd }: { today: LogicalDate; onAdd(): void }) {
 
       {selected && (
         <section className="card">
-          <h2>{selected.name}</h2>
-          <Heatmap cells={cells} />
+          <h2>
+            {selected.icon} {selected.name}
+          </h2>
+          <Heatmap cells={cells} hue={selected.color} />
         </section>
       )}
     </>

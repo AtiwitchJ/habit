@@ -2,6 +2,10 @@ import { uuidv7 } from './ids.ts';
 import type { LogicalDate } from './logical-date.ts';
 import type { Schedule } from './streak.ts';
 
+// Fixed palette so every color has light and dark variants in the web styles.
+export const HUES = ['green', 'teal', 'blue', 'purple', 'pink', 'red', 'orange', 'yellow'] as const;
+export type Hue = (typeof HUES)[number];
+
 export interface HabitRecord {
   id: string;
   name: string;
@@ -12,6 +16,8 @@ export interface HabitRecord {
   startDate: LogicalDate;
   templateId?: string;
   reminderTime?: string;
+  icon?: string; // one emoji
+  color?: Hue; // unset = green
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -32,7 +38,7 @@ export interface LogRecord {
 
 export type NewHabit = Omit<HabitRecord, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
 export type NewLog = Omit<LogRecord, 'id' | 'createdAt' | 'deletedAt'>;
-export type HabitPatch = Partial<Pick<HabitRecord, 'name' | 'target' | 'startDate' | 'reminderTime'>>;
+export type HabitPatch = Partial<Pick<HabitRecord, 'name' | 'target' | 'startDate' | 'reminderTime' | 'icon' | 'color'>>;
 
 // Async so a SQLite-backed repo can replace the in-memory one without touching the UI.
 export interface HabitRepo {
