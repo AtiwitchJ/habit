@@ -10,6 +10,7 @@ export interface HabitRecord {
   id: string;
   name: string;
   kind: 'boolean' | 'quantitative';
+  quit?: boolean; // quit habit: clean every day unless a relapse is logged
   target: number;
   unit?: string;
   schedule: Schedule;
@@ -31,7 +32,7 @@ export interface LogRecord {
   id: string;
   habitId: string;
   logicalDate: LogicalDate;
-  kind: 'complete' | 'skip' | 'freeze';
+  kind: 'complete' | 'skip' | 'freeze' | 'relapse';
   value: number;
   note?: string;
   occurredAt: string;
@@ -48,6 +49,7 @@ export type HabitPatch = Partial<
     HabitRecord,
     | 'name'
     | 'kind'
+    | 'quit'
     | 'target'
     | 'unit'
     | 'schedule'

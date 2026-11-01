@@ -1,5 +1,6 @@
 import type { HabitRecord } from '@habit/core/repo';
 import type { HabitSummary } from '@habit/core/summary';
+import { streakUnit } from '@habit/core/streak';
 
 interface Props {
   habit: HabitRecord;
@@ -28,7 +29,7 @@ export function HabitRow({
   onPlus,
   onMinus,
 }: Props) {
-  const unit = habit.schedule.type === 'times_per_week' ? 'wk' : 'd';
+  const unit = streakUnit(habit.schedule);
   return (
     <li className={`row hue-${habit.color ?? 'green'}${selected ? ' selected' : ''}`}>
       <button
@@ -55,12 +56,14 @@ export function HabitRow({
         <button
           className="check"
           aria-pressed={summary.done}
-          aria-label={summary.done ? `${habit.name} done, tap to undo` : `Mark ${habit.name} done`}
-          title={summary.done ? 'Tap to undo' : 'Mark done'}
+          aria-label={habit.quit
+            ? (summary.done ? `${habit.name} clean today, tap to log a slip` : `${habit.name} slipped, tap to undo`)
+            : (summary.done ? `${habit.name} done, tap to undo` : `Mark ${habit.name} done`)}
+          title={habit.quit ? (summary.done ? 'Tap to log a slip' : 'Tap to undo the slip') : summary.done ? 'Tap to undo' : 'Mark done'}
           disabled={!canEdit}
           onClick={onToggle}
         >
-          {summary.done ? 'Done' : 'Mark done'}
+          {habit.quit ? (summary.done ? 'Clean' : 'Slipped') : summary.done ? 'Done' : 'Mark done'}
         </button>
       ) : (
         <div className="stepper">

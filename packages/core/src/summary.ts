@@ -17,19 +17,20 @@ export interface HabitDetailStats {
 }
 
 export function summarize(habit: HabitRecord, logs: LogRecord[], date: LogicalDate, today: LogicalDate): HabitSummary {
+  const relapsed = logs.some((log) => !log.deletedAt && log.kind === 'relapse' && log.logicalDate === date);
   const value = logs
     .filter((log) => !log.deletedAt && log.kind === 'complete' && log.logicalDate === date)
     .reduce((sum, log) => sum + log.value, 0);
   return {
     due: isDue(habit.schedule, date),
     value,
-    done: value >= habit.target,
-    streak: evaluateStreak({ startDate: habit.startDate, target: habit.target, schedule: habit.schedule }, logs, today),
+    done: habit.quit ? !relapsed : value >= habit.target,
+    streak: evaluateStreak({ startDate: habit.startDate, target: habit.target, schedule: habit.schedule, quit: habit.quit }, logs, today),
   };
 }
 
 export function computeHabitStats(habit: HabitRecord, logs: LogRecord[], today: LogicalDate): HabitDetailStats {
-  const streak = evaluateStreak({ startDate: habit.startDate, target: habit.target, schedule: habit.schedule }, logs, today);
+  const streak = evaluateStreak({ startDate: habit.startDate, target: habit.target, schedule: habit.schedule, quit: habit.quit }, logs, today);
 
   const byDate = new Map<LogicalDate, number>();
   for (const log of logs) {
@@ -37,10 +38,16 @@ export function computeHabitStats(habit: HabitRecord, logs: LogRecord[], today: 
     byDate.set(log.logicalDate, (byDate.get(log.logicalDate) ?? 0) + log.value);
   }
 
+  const relapsedDates = new Set(logs.filter((log) => !log.deletedAt && log.kind === 'relapse').map((log) => log.logicalDate));
+  // Quit habits have no completions: every non-relapse day since start is a win.
+  const isWin = (date: LogicalDate, sum: number) => (habit.quit ? !relapsedDates.has(date) : sum >= habit.target);
+
   let totalCompletions = 0;
-  for (const [date, sum] of byDate.entries()) {
-    if (date >= habit.startDate && date <= today && sum >= habit.target) {
-      totalCompletions++;
+  if (habit.quit) {
+    for (let d = habit.startDate; d <= today; d = addDays(d, 1)) if (isWin(d, 0)) totalCompletions++;
+  } else {
+    for (const [date, sum] of byDate.entries()) {
+      if (date >= habit.startDate && date <= today && isWin(date, sum)) totalCompletions++;
     }
   }
 
@@ -51,7 +58,7 @@ export function computeHabitStats(habit: HabitRecord, logs: LogRecord[], today: 
     if (d < habit.startDate) continue;
     if (isDue(habit.schedule, d)) {
       dueDays30d++;
-      if ((byDate.get(d) ?? 0) >= habit.target) {
+      if (isWin(d, byDate.get(d) ?? 0)) {
         doneDays30d++;
       }
     }

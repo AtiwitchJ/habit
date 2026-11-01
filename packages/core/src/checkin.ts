@@ -112,3 +112,24 @@ export async function clearDay(repo: HabitRepo, habit: HabitRecord, date: Logica
     if (log.kind === 'complete' && log.logicalDate === date) await repo.removeLog(log.id);
   }
 }
+
+// Quit habits: marks `date` as a slip. Clears any skip/freeze first so the day has one state.
+export async function relapse(
+  repo: HabitRepo,
+  habit: HabitRecord,
+  date: LogicalDate,
+  today: LogicalDate,
+  note?: string,
+  now: Date = new Date(),
+): Promise<void> {
+  if (!canLog(habit, date, today)) throw new RangeError(`Cannot log ${date} for habit ${habit.id}`);
+  await removeExcusedDay(repo, habit, date);
+  if ((await repo.listLogs(habit.id)).some((log) => log.kind === 'relapse' && log.logicalDate === date)) return;
+  await repo.addLog({ habitId: habit.id, logicalDate: date, kind: 'relapse', value: 0, note, occurredAt: now.toISOString(), isRetroactive: date < today });
+}
+
+export async function clearRelapse(repo: HabitRepo, habit: HabitRecord, date: LogicalDate): Promise<void> {
+  for (const log of await repo.listLogs(habit.id)) {
+    if (log.kind === 'relapse' && log.logicalDate === date) await repo.removeLog(log.id);
+  }
+}

@@ -3,6 +3,7 @@ import { heatmapLevels } from '@habit/core/heatmap';
 import { addDays, startOfIsoWeek, type LogicalDate } from '@habit/core/logical-date';
 import type { HabitRecord, LogRecord } from '@habit/core/repo';
 import { computeHabitStats, type HabitDetailStats } from '@habit/core/summary';
+import { streakUnit } from '@habit/core/streak';
 import { Heatmap } from './Heatmap.tsx';
 
 interface Props {
@@ -67,7 +68,7 @@ export function HabitDetailModal({
     .filter((l) => l.kind === 'complete')
     .reduce((sum, l) => sum + l.value, 0);
 
-  const isDone = daySum >= habit.target;
+  const isDone = habit.quit ? !dayLogs.some((l) => l.kind === 'relapse') : daySum >= habit.target;
   const skipLog = dayLogs.find((l) => l.kind === 'skip');
   const freezeLog = dayLogs.find((l) => l.kind === 'freeze');
   const isExcused = !!(skipLog || freezeLog);
@@ -79,7 +80,7 @@ export function HabitDetailModal({
       .slice(0, 10);
   }, [logs]);
 
-  const unitLabel = habit.schedule.type === 'times_per_week' ? 'wk' : 'd';
+  const unitLabel = streakUnit(habit.schedule);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -152,7 +153,7 @@ export function HabitDetailModal({
                     className={`primary full ${isDone ? 'done-btn' : ''}`}
                     onClick={() => onToggle(note.trim() || undefined)}
                   >
-                    {isDone ? '✓ Completed (tap to undo)' : 'Mark Done for this day'}
+                    {habit.quit ? (isDone ? '✓ Clean (tap to log a slip)' : 'Slipped (tap to undo)') : isDone ? '✓ Completed (tap to undo)' : 'Mark Done for this day'}
                   </button>
                 </div>
               ) : (

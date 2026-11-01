@@ -40,9 +40,10 @@ export function EditHabit({
   const [selectedDays, setSelectedDays] = useState<number[]>(
     habit.schedule.type === 'weekdays' ? habit.schedule.days : [1, 2, 3, 4, 5],
   );
-  const [weeklyCount, setWeeklyCount] = useState<number>(
-    habit.schedule.type === 'times_per_week' ? habit.schedule.count : 3,
+  const [periodCount, setPeriodCount] = useState<number>(
+    'count' in habit.schedule ? habit.schedule.count : 3,
   );
+  const [quit, setQuit] = useState(habit.quit ?? false);
   const [startDate, setStartDate] = useState(habit.startDate);
   const [reminderTimes, setReminderTimes] = useState<string[]>(habit.reminderTimes ?? (habit.reminderTime ? [habit.reminderTime] : []));
   const [error, setError] = useState<string | null>(null);
@@ -55,13 +56,19 @@ export function EditHabit({
 
   const computeSchedule = (): Schedule => {
     if (scheduleType === 'weekdays') return { type: 'weekdays', days: selectedDays };
-    if (scheduleType === 'times_per_week') return { type: 'times_per_week', count: weeklyCount };
+    if (scheduleType === 'times_per_week' || scheduleType === 'times_per_month' || scheduleType === 'times_per_year') {
+      return { type: scheduleType, count: periodCount };
+    }
     return { type: 'daily' };
   };
 
   async function save() {
     const trimmedName = name.trim();
     if (!trimmedName) return setError('Name is required.');
+    const max = scheduleType === 'times_per_week' ? 7 : scheduleType === 'times_per_month' ? 31 : 366;
+    if (scheduleType.startsWith('times_per_') && !(Number.isInteger(periodCount) && periodCount >= 1 && periodCount <= max)) {
+      return setError(`Choose between 1 and ${max} times.`);
+    }
     if (kind === 'quantitative' && !(target > 0)) return setError('Target must be greater than 0.');
     if (kind === 'quantitative' && !unit.trim()) return setError('Unit is required.');
     if (kind === 'quantitative' && step !== '' && !(Number(step) > 0)) {
@@ -82,11 +89,12 @@ export function EditHabit({
       name: trimmedName,
       icon: icon || undefined,
       color,
-      kind,
-      target: kind === 'boolean' ? 1 : target,
+      kind: quit ? 'boolean' : kind,
+      quit: quit || undefined,
+      target: quit || kind === 'boolean' ? 1 : target,
       unit: kind === 'quantitative' ? unit.trim() : undefined,
       step: kind === 'quantitative' && step !== '' ? Number(step) : undefined,
-      schedule: computeSchedule(),
+      schedule: quit ? { type: 'daily' } : computeSchedule(),
       startDate,
       reminderTime: reminderTimes[0],
       reminderTimes: [...reminderTimes].sort(),
@@ -137,6 +145,12 @@ export function EditHabit({
       </div>
 
       <label className="field">
+        <span>Quit a habit</span>
+        <input type="checkbox" checked={quit} onChange={(e) => { setQuit(e.target.checked); if (e.target.checked) setKind('boolean'); }} />
+        <small>Counts clean days; log a slip to reset the streak.</small>
+      </label>
+
+      <label className="field">
         <span>Type</span>
         <select
           value={kind}
@@ -152,7 +166,7 @@ export function EditHabit({
         </select>
       </label>
 
-      {kind === 'quantitative' && (
+      {!quit && kind === 'quantitative' && (
         <>
           <label className="field">
             <span>Daily target</span>
@@ -176,7 +190,7 @@ export function EditHabit({
         </>
       )}
 
-      <div className="field">
+      {!quit && <div className="field">
         <span>Schedule</span>
         <div className="chips">
           <button
@@ -200,8 +214,14 @@ export function EditHabit({
           >
             Times per week
           </button>
+          <button type="button" aria-pressed={scheduleType === 'times_per_month'} onClick={() => setScheduleType('times_per_month')}>
+            Times per month
+          </button>
+          <button type="button" aria-pressed={scheduleType === 'times_per_year'} onClick={() => setScheduleType('times_per_year')}>
+            Times per year
+          </button>
         </div>
-      </div>
+      </div>}
 
       {scheduleType === 'weekdays' && (
         <div className="field">
@@ -221,16 +241,10 @@ export function EditHabit({
         </div>
       )}
 
-      {scheduleType === 'times_per_week' && (
+      {!quit && scheduleType.startsWith('times_per_') && (
         <label className="field">
-          <span>Times per week</span>
-          <select value={weeklyCount} onChange={(e) => setWeeklyCount(Number(e.target.value))}>
-            {[1, 2, 3, 4, 5, 6, 7].map((num) => (
-              <option key={num} value={num}>
-                {num}× per week
-              </option>
-            ))}
-          </select>
+          <span>Times per {scheduleType.slice('times_per_'.length)}</span>
+          <input type="number" min="1" max={scheduleType === 'times_per_week' ? 7 : scheduleType === 'times_per_month' ? 31 : 366} value={periodCount} onChange={(e) => setPeriodCount(Number(e.target.value))} />
         </label>
       )}
 

@@ -3,7 +3,9 @@ import {
   canLog,
   checkIn,
   clearDay,
+  clearRelapse,
   freezeDay,
+  relapse,
   removeExcusedDay,
   RETRO_DAYS,
   skipDay,
@@ -87,7 +89,7 @@ export function Today({
   const selected = habits.find((habit) => habit.id === selectedId) ?? displayedHabits[0];
   const cells = selected
     ? heatmapLevels(
-        { startDate: selected.startDate, target: selected.target, schedule: selected.schedule },
+        { startDate: selected.startDate, target: selected.target, schedule: selected.schedule, quit: selected.quit },
         logs[selected.id] ?? [],
         addDays(startOfIsoWeek(today), -25 * 7),
         today,
@@ -110,7 +112,9 @@ export function Today({
         isFrozen={isFrozen}
         onSelect={() => setSelectedId(habit.id)}
         onOpenDetail={() => setDetailHabit(habit)}
-        onToggle={() => run(() => (summary.done ? clearDay(repo, habit, date) : checkIn(repo, habit, date, today)))}
+        onToggle={() => run(() => (habit.quit
+          ? (summary.done ? relapse(repo, habit, date, today) : clearRelapse(repo, habit, date))
+          : summary.done ? clearDay(repo, habit, date) : checkIn(repo, habit, date, today)))}
         onPlus={() => run(() => checkIn(repo, habit, date, today))}
         onMinus={() => run(() => undoCheckIn(repo, habit, date))}
       />
@@ -228,6 +232,9 @@ export function Today({
           onToggle={(note) =>
             run(() => {
               const summary = summarize(detailHabit, logs[detailHabit.id] ?? [], date, today);
+              if (detailHabit.quit) {
+                return summary.done ? relapse(repo, detailHabit, date, today, note) : clearRelapse(repo, detailHabit, date);
+              }
               return summary.done
                 ? clearDay(repo, detailHabit, date)
                 : checkIn(repo, detailHabit, date, today, new Date(), note);
