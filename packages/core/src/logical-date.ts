@@ -84,3 +84,16 @@ export function toLogicalDate(instant: Date | number, boundary: DayBoundary): Lo
 export function currentLogicalDate(boundary: DayBoundary, now: Date | number = Date.now()): LogicalDate {
   return toLogicalDate(now, boundary);
 }
+
+// For untrusted settings: returns the input if usable, else UTC with midnight rollover and a warning.
+export function safeBoundary(timeZone: string, rolloverMinutes: number): { boundary: DayBoundary; warning?: string } {
+  try {
+    toLogicalDate(0, { timeZone, rolloverMinutes });
+    return { boundary: { timeZone, rolloverMinutes } };
+  } catch {
+    return {
+      boundary: { timeZone: 'UTC', rolloverMinutes: 0 },
+      warning: 'Invalid timezone or rollover setting; using UTC with midnight rollover.',
+    };
+  }
+}

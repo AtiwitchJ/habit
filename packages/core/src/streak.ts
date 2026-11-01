@@ -30,6 +30,11 @@ export interface StreakResult {
 // missed: breaks streak.
 type UnitState = 'done' | 'excused' | 'open' | 'missed';
 
+// times_per_week is not tied to specific days, so every day counts as a day you can do it.
+export function isDue(schedule: Schedule, date: LogicalDate): boolean {
+  return schedule.type !== 'weekdays' || schedule.days.includes(isoWeekday(date));
+}
+
 export function evaluateStreak(rule: HabitRule, logs: LogRow[], today: LogicalDate): StreakResult {
   if (!(rule.target > 0)) throw new RangeError('target must be > 0');
 
@@ -72,8 +77,7 @@ export function evaluateStreak(rule: HabitRule, logs: LogRow[], today: LogicalDa
     }
   } else {
     for (let day = rule.startDate; day <= today; day = addDays(day, 1)) {
-      const due = schedule.type === 'daily' || schedule.days.includes(isoWeekday(day));
-      if (due) states.push(dayState(day));
+      if (isDue(schedule, day)) states.push(dayState(day));
     }
   }
 
