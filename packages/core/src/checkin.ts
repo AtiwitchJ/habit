@@ -13,16 +13,74 @@ export function canLog(habit: Pick<HabitRecord, 'startDate'>, date: LogicalDate,
   return date >= habit.startDate && date <= today && daysBetween(date, today) <= RETRO_DAYS;
 }
 
-export async function checkIn(repo: HabitRepo, habit: HabitRecord, date: LogicalDate, today: LogicalDate, now: Date = new Date()): Promise<void> {
+export async function checkIn(
+  repo: HabitRepo,
+  habit: HabitRecord,
+  date: LogicalDate,
+  today: LogicalDate,
+  now: Date = new Date(),
+  note?: string,
+): Promise<void> {
   if (!canLog(habit, date, today)) throw new RangeError(`Cannot log ${date} for habit ${habit.id}`);
   await repo.addLog({
     habitId: habit.id,
     logicalDate: date,
     kind: 'complete',
     value: stepFor(habit),
+    note,
     occurredAt: now.toISOString(),
     isRetroactive: date < today,
   });
+}
+
+export async function skipDay(
+  repo: HabitRepo,
+  habit: HabitRecord,
+  date: LogicalDate,
+  today: LogicalDate,
+  note?: string,
+  now: Date = new Date(),
+): Promise<void> {
+  if (!canLog(habit, date, today)) throw new RangeError(`Cannot log ${date} for habit ${habit.id}`);
+  await removeExcusedDay(repo, habit, date);
+  await repo.addLog({
+    habitId: habit.id,
+    logicalDate: date,
+    kind: 'skip',
+    value: 0,
+    note,
+    occurredAt: now.toISOString(),
+    isRetroactive: date < today,
+  });
+}
+
+export async function freezeDay(
+  repo: HabitRepo,
+  habit: HabitRecord,
+  date: LogicalDate,
+  today: LogicalDate,
+  note?: string,
+  now: Date = new Date(),
+): Promise<void> {
+  if (!canLog(habit, date, today)) throw new RangeError(`Cannot log ${date} for habit ${habit.id}`);
+  await removeExcusedDay(repo, habit, date);
+  await repo.addLog({
+    habitId: habit.id,
+    logicalDate: date,
+    kind: 'freeze',
+    value: 0,
+    note,
+    occurredAt: now.toISOString(),
+    isRetroactive: date < today,
+  });
+}
+
+export async function removeExcusedDay(repo: HabitRepo, habit: HabitRecord, date: LogicalDate): Promise<void> {
+  for (const log of await repo.listLogs(habit.id)) {
+    if ((log.kind === 'skip' || log.kind === 'freeze') && log.logicalDate === date) {
+      await repo.removeLog(log.id);
+    }
+  }
 }
 
 // Removes the most recent completion on `date` (undo one step).

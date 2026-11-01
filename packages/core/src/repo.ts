@@ -19,6 +19,8 @@ export interface HabitRecord {
   icon?: string; // one emoji
   color?: Hue; // unset = green
   step?: number; // amount one tap adds (quantitative); unset = about a tenth of target
+  archivedAt?: string | null;
+  order?: number;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -30,6 +32,7 @@ export interface LogRecord {
   logicalDate: LogicalDate;
   kind: 'complete' | 'skip' | 'freeze';
   value: number;
+  note?: string;
   occurredAt: string;
   isRetroactive: boolean;
   createdAt: string;
@@ -39,7 +42,23 @@ export interface LogRecord {
 
 export type NewHabit = Omit<HabitRecord, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
 export type NewLog = Omit<LogRecord, 'id' | 'createdAt' | 'deletedAt'>;
-export type HabitPatch = Partial<Pick<HabitRecord, 'name' | 'target' | 'startDate' | 'reminderTime' | 'icon' | 'color' | 'step'>>;
+export type HabitPatch = Partial<
+  Pick<
+    HabitRecord,
+    | 'name'
+    | 'kind'
+    | 'target'
+    | 'unit'
+    | 'schedule'
+    | 'startDate'
+    | 'reminderTime'
+    | 'icon'
+    | 'color'
+    | 'step'
+    | 'archivedAt'
+    | 'order'
+  >
+>;
 
 // Async so a SQLite-backed repo can replace the in-memory one without touching the UI.
 export interface HabitRepo {

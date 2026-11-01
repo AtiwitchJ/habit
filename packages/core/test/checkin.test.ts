@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMemoryRepo, type NewHabit } from '../src/repo.ts';
-import { canLog, checkIn, clearDay, stepFor, undoCheckIn } from '../src/checkin.ts';
+import { canLog, checkIn, clearDay, freezeDay, removeExcusedDay, skipDay, stepFor, undoCheckIn } from '../src/checkin.ts';
 import { summarize } from '../src/summary.ts';
 
 const NOW = new Date('2026-10-30T10:00:00Z');
@@ -78,3 +78,24 @@ test('summarize: due follows the schedule', async () => {
   assert.equal(summarize(habit, logs, '2026-10-30', TODAY).due, true); // Friday
   assert.equal(summarize(habit, logs, '2026-10-29', TODAY).due, false); // Thursday
 });
+
+test('skipDay adds a skip log and freezeDay adds a freeze log', async () => {
+  const { repo, habit } = await setup(meditate);
+  await skipDay(repo, habit, '2026-10-29', TODAY, 'Sick today', NOW);
+  let logs = await repo.listLogs(habit.id);
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].kind, 'skip');
+  assert.equal(logs[0].note, 'Sick today');
+
+  await freezeDay(repo, habit, TODAY, TODAY, 'Vacation', NOW);
+  logs = await repo.listLogs(habit.id);
+  assert.equal(logs.length, 2);
+  assert.equal(logs[1].kind, 'freeze');
+  assert.equal(logs[1].note, 'Vacation');
+
+  await removeExcusedDay(repo, habit, '2026-10-29');
+  logs = await repo.listLogs(habit.id);
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].kind, 'freeze');
+});
+
