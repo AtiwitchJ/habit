@@ -241,6 +241,7 @@ export function Today({
             })
           }
           onPlus={(note) => run(() => checkIn(repo, detailHabit, date, today, new Date(), note))}
+          onTimerLog={(minutes) => run(() => checkIn(repo, detailHabit, date, today, new Date(), undefined, minutes))}
           onMinus={() => run(() => undoCheckIn(repo, detailHabit, date))}
           onSkip={(note) => run(() => skipDay(repo, detailHabit, date, today, note))}
           onFreeze={(note) => run(() => freezeDay(repo, detailHabit, date, today, note))}

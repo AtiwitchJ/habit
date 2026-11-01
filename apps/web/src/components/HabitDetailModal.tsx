@@ -4,6 +4,8 @@ import { addDays, startOfIsoWeek, type LogicalDate } from '@habit/core/logical-d
 import type { HabitRecord, LogRecord } from '@habit/core/repo';
 import { computeHabitStats, type HabitDetailStats } from '@habit/core/summary';
 import { streakUnit } from '@habit/core/streak';
+import { isTimeUnit } from '@habit/core/timer';
+import { Timer } from './Timer.tsx';
 import { Heatmap } from './Heatmap.tsx';
 
 interface Props {
@@ -15,6 +17,7 @@ interface Props {
   onEdit(habit: HabitRecord): void;
   onToggle(note?: string): void;
   onPlus(note?: string): void;
+  onTimerLog(minutes: number): void;
   onMinus(): void;
   onSkip(note?: string): void;
   onFreeze(note?: string): void;
@@ -32,6 +35,7 @@ export function HabitDetailModal({
   onEdit,
   onToggle,
   onPlus,
+  onTimerLog,
   onMinus,
   onSkip,
   onFreeze,
@@ -167,6 +171,7 @@ export function HabitDetailModal({
                     </span>
                     <button aria-label={`Add one step to ${habit.name}`} disabled={isDone} onClick={() => onPlus(note.trim() || undefined)}>+</button>
                   </div>
+                  {isTimeUnit(habit.unit) && <Timer habitId={habit.id} disabled={isDone || isExcused} onFinish={onTimerLog} />}
                 </div>
               )}
 

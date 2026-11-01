@@ -21,10 +21,11 @@ export async function checkIn(
   today: LogicalDate,
   now: Date = new Date(),
   note?: string,
+  amount: number = stepFor(habit), // a timer logs its own minutes instead of one step
 ): Promise<void> {
   if (!canLog(habit, date, today)) throw new RangeError(`Cannot log ${date} for habit ${habit.id}`);
   const previous = pendingCheckIns.get(repo) ?? Promise.resolve();
-  const current = previous.catch(() => {}).then(() => addCheckIn(repo, habit, date, today, now, note));
+  const current = previous.catch(() => {}).then(() => addCheckIn(repo, habit, date, today, now, amount, note));
   pendingCheckIns.set(repo, current);
   try {
     await current;
@@ -33,11 +34,11 @@ export async function checkIn(
   }
 }
 
-async function addCheckIn(repo: HabitRepo, habit: HabitRecord, date: LogicalDate, today: LogicalDate, now: Date, note?: string): Promise<void> {
+async function addCheckIn(repo: HabitRepo, habit: HabitRecord, date: LogicalDate, today: LogicalDate, now: Date, amount: number, note?: string): Promise<void> {
   const logs = await repo.listLogs(habit.id);
   const completed = logs.filter((log) => !log.deletedAt && log.kind === 'complete' && log.logicalDate === date)
     .reduce((sum, log) => sum + log.value, 0);
-  const value = Math.min(stepFor(habit), habit.target - completed);
+  const value = Math.min(amount, habit.target - completed);
   if (value <= 0) return;
   await repo.addLog({
     habitId: habit.id,

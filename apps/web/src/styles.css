@@ -679,3 +679,7 @@ details summary { cursor: pointer; color: var(--muted); font-weight: 700; margin
 @media (prefers-reduced-motion: reduce) {
   *, *::before { animation: none !important; transition: none !important; }
 }
+
+.timer { margin-top: 0.75rem; display: grid; gap: 0.5rem; justify-items: center; }
+.timer strong { font-size: 2rem; font-variant-numeric: tabular-nums; }
+.timer input { width: 4.5rem; }
