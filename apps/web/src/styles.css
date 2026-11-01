@@ -420,12 +420,255 @@ details summary { cursor: pointer; color: var(--muted); font-weight: 700; margin
   color: var(--danger);
 }
 
-@media (max-width: 420px) {
-  .datebar { gap: 6px; }
-  .datebar strong { font-size: .85rem; }
-  .datebar button:not(.primary) { width: 36px; height: 36px; }
-  .datebar button.primary { padding: 8px 12px; }
+/* Activity Presets Grid & Box Layout */
+.add-habit-page {
+  padding-bottom: 90px;
 }
+.preset-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.preset-header h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+.preset-header .subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: .88rem;
+}
+.cancel-btn {
+  padding: 6px 14px;
+  font-size: .85rem;
+}
+
+/* Category Horizontal Scroll Bar */
+.category-scroll-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.category-scroll-bar::-webkit-scrollbar {
+  display: none;
+}
+.cat-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  white-space: nowrap;
+  font-size: .88rem;
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.cat-tab.active {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+}
+
+/* Presets Grid */
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.preset-box {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: transform .12s ease, border-color .15s ease, box-shadow .15s ease;
+  position: relative;
+  box-shadow: inset 4px 0 0 var(--accent), var(--shadow);
+}
+.preset-box:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+.preset-box.selected {
+  outline: 2.5px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.preset-box.already-added {
+  opacity: .65;
+  cursor: default;
+}
+.preset-box.already-added:hover {
+  transform: none;
+  border-color: var(--border);
+}
+
+.box-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.box-icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.box-title-group {
+  flex: 1;
+  min-width: 0;
+}
+.box-title-group h4 {
+  margin: 0;
+  font-size: 1.02rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+.box-schedule-badge {
+  display: inline-block;
+  font-size: .8rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.selection-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-size: .75rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  transition: all .15s ease;
+}
+.selection-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Variant Pills */
+.preset-variant-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.variant-pill {
+  font-size: .78rem;
+  padding: 4px 10px;
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--muted);
+}
+.variant-pill.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.box-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+.quick-add-btn {
+  font-size: .82rem;
+  padding: 6px 14px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: transparent;
+  font-weight: 700;
+}
+.quick-add-btn:hover:not(:disabled) {
+  background: var(--accent);
+}
+.added-badge {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* Floating Batch Bar (Mode B) */
+.floating-batch-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / .28);
+  padding: 8px 12px 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 500;
+  animation: floatUp .2s cubic-bezier(.16, 1, .3, 1);
+  max-width: 90vw;
+}
+@keyframes floatUp {
+  0% { transform: translate(-50%, 20px); opacity: 0; }
+  100% { transform: translate(-50%, 0); opacity: 1; }
+}
+.batch-info {
+  font-size: .9rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+.batch-submit-btn {
+  padding: 10px 20px;
+  font-size: .95rem;
+}
+
+/* Custom Fallback Trigger */
+.custom-fallback-section {
+  text-align: center;
+  padding: 24px 16px;
+  border-top: 1px dashed var(--border);
+  margin-top: 24px;
+}
+.custom-fallback-section p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: .85rem;
+}
+.custom-form-trigger {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: .85rem;
+  padding: 6px 16px;
+}
+.custom-form-trigger:hover {
+  color: var(--text);
+  border-color: var(--text);
+}
+
+@media (max-width: 420px) {
+  .presets-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before { animation: none !important; transition: none !important; }

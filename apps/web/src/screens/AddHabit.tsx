@@ -1,205 +1,445 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RETRO_DAYS, stepFor } from '@habit/core/checkin';
 import { addDays, assertLogicalDate, type LogicalDate } from '@habit/core/logical-date';
-import type { Schedule } from '@habit/core/streak';
 import { HUES, type Hue } from '@habit/core/repo';
-import { CATEGORY_HUE, templatesByCategory, type HabitTemplate, type UnitOption } from '@habit/core/templates';
+import type { Schedule } from '@habit/core/streak';
+import {
+  CATEGORY_INFO,
+  THAI_HABIT_PRESETS,
+  type HabitPreset,
+  type PresetCategory,
+} from '../presets-th.ts';
 import { repo } from '../repo-local.ts';
 
-interface Draft {
+const firstEmoji = (text: string): string =>
+  new Intl.Segmenter().segment(text.trim())[Symbol.iterator]().next().value?.segment ?? '';
+
+function describeSchedule(schedule: Schedule): string {
+  if (schedule.type === 'daily') return 'ทุกวัน';
+  if (schedule.type === 'weekdays') return `วันธรรมดา (${schedule.days.length} วัน)`;
+  return `${schedule.count} วัน / สัปดาห์`;
+}
+
+interface CustomDraft {
   name: string;
   kind: 'boolean' | 'quantitative';
   target: number;
   unit: string;
-  step: string; // '' = automatic
-  options: UnitOption[]; // template's ways to measure, first is the default
+  step: string;
   schedule: Schedule;
   startDate: string;
-  templateId?: string;
-  reminderTime?: string;
   icon: string;
   color: Hue;
-  custom: boolean;
 }
 
-// An emoji can be several code points; keep the first user-perceived character only.
-const firstEmoji = (text: string): string => new Intl.Segmenter().segment(text.trim())[Symbol.iterator]().next().value?.segment ?? '';
-
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-function describe(schedule: Schedule): string {
-  if (schedule.type === 'daily') return 'Every day';
-  if (schedule.type === 'weekdays') return schedule.days.map((d) => DAY_NAMES[d - 1]).join(', ');
-  return `${schedule.count}× per week`;
-}
-
-function fromTemplate(t: HabitTemplate, today: LogicalDate): Draft {
-  return { name: t.name, kind: t.kind, target: t.target, unit: t.unit ?? '', step: '', options: t.unit ? [{ target: t.target, unit: t.unit }, ...(t.alts ?? [])] : [], schedule: t.schedule, startDate: today, templateId: t.id, reminderTime: t.reminderTime, icon: t.icon, color: CATEGORY_HUE[t.category], custom: false };
-}
-
-function blankCustom(today: LogicalDate): Draft {
-  return { name: '', kind: 'boolean', target: 1, unit: '', step: '', options: [], schedule: { type: 'daily' }, startDate: today, icon: '', color: 'green', custom: true };
-}
-
-export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDone(): void; onCancel(): void }) {
-  const [draft, setDraft] = useState<Draft | null>(null);
+export function AddHabit({
+  today,
+  onDone,
+  onCancel,
+}: {
+  today: LogicalDate;
+  onDone(): void;
+  onCancel(): void;
+}) {
+  const [activeCategory, setActiveCategory] = useState<PresetCategory>('popular');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [presetVariants, setPresetVariants] = useState<Record<string, number>>({});
+  const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function save(d: Draft) {
-    const name = d.name.trim();
-    if (!name) return setError('Name is required.');
-    if (d.kind === 'quantitative' && !(d.target > 0)) return setError('Target must be greater than 0.');
-    if (d.kind === 'quantitative' && !d.unit.trim()) return setError('Unit is required.');
-    if (d.kind === 'quantitative' && d.step !== '' && !(Number(d.step) > 0)) return setError('Each tap must add more than 0.');
-    try {
-      assertLogicalDate(d.startDate);
-    } catch {
-      return setError('Start date is invalid.');
-    }
-    if (d.startDate > today || d.startDate < addDays(today, -RETRO_DAYS)) {
-      return setError(`Start date must be within the last ${RETRO_DAYS} days.`);
-    }
-    await repo.addHabit({
-      name,
-      kind: d.kind,
-      target: d.kind === 'boolean' ? 1 : d.target,
-      unit: d.kind === 'quantitative' ? d.unit.trim() : undefined,
-      step: d.kind === 'quantitative' && d.step !== '' ? Number(d.step) : undefined,
-      schedule: d.schedule,
-      startDate: d.startDate,
-      templateId: d.templateId,
-      reminderTime: d.reminderTime,
-      icon: d.icon || undefined,
-      color: d.color,
-    });
-    onDone();
-  }
+  // Custom fallback form state
+  const [customDraft, setCustomDraft] = useState<CustomDraft>({
+    name: '',
+    kind: 'boolean',
+    target: 1,
+    unit: '',
+    step: '',
+    schedule: { type: 'daily' },
+    startDate: today,
+    icon: '✨',
+    color: 'teal',
+  });
 
-  if (draft) {
-    const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch });
+  useEffect(() => {
+    void repo.listHabits().then((list) => {
+      setExistingNames(new Set(list.map((h) => h.name.toLowerCase().trim())));
+    });
+  }, []);
+
+  const filteredPresets = useMemo(() => {
+    return THAI_HABIT_PRESETS.filter((p) => p.category === activeCategory);
+  }, [activeCategory]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const getActivePresetConfig = (preset: HabitPreset) => {
+    const variantIdx = presetVariants[preset.id] ?? 0;
+    if (preset.options && preset.options[variantIdx]) {
+      const opt = preset.options[variantIdx];
+      return {
+        target: opt.target,
+        unit: opt.unit,
+        step: opt.step ?? (preset.kind === 'quantitative' ? Math.max(1, Math.round(opt.target / 10)) : 1),
+      };
+    }
+    return {
+      target: preset.target,
+      unit: preset.unit,
+      step: preset.step ?? (preset.kind === 'quantitative' ? Math.max(1, Math.round(preset.target / 10)) : 1),
+    };
+  };
+
+  // Mode A: Add single habit immediately
+  const handleInstantAdd = async (preset: HabitPreset) => {
+    try {
+      setSaving(true);
+      setError(null);
+      const cfg = getActivePresetConfig(preset);
+      await repo.addHabit({
+        name: preset.name,
+        icon: preset.icon,
+        color: preset.color,
+        kind: preset.kind,
+        target: cfg.target,
+        unit: cfg.unit,
+        step: cfg.step,
+        schedule: preset.schedule,
+        startDate: today,
+        templateId: preset.id,
+        reminderTime: preset.reminderTime,
+      });
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSaving(false);
+    }
+  };
+
+  // Mode B: Add all selected habits in batch
+  const handleBatchAdd = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setSaving(true);
+      setError(null);
+      const toAdd = THAI_HABIT_PRESETS.filter((p) => selectedIds.has(p.id));
+      await Promise.all(
+        toAdd.map((preset) => {
+          const cfg = getActivePresetConfig(preset);
+          return repo.addHabit({
+            name: preset.name,
+            icon: preset.icon,
+            color: preset.color,
+            kind: preset.kind,
+            target: cfg.target,
+            unit: cfg.unit,
+            step: cfg.step,
+            schedule: preset.schedule,
+            startDate: today,
+            templateId: preset.id,
+            reminderTime: preset.reminderTime,
+          });
+        }),
+      );
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSaving(false);
+    }
+  };
+
+  // Custom Form Save (Last resort)
+  const saveCustom = async () => {
+    const trimmed = customDraft.name.trim();
+    if (!trimmed) return setError('กรุณาระบุชื่อนิสัย');
+    if (customDraft.kind === 'quantitative' && !(customDraft.target > 0)) {
+      return setError('เป้าหมายต้องมากกว่า 0');
+    }
+    if (customDraft.kind === 'quantitative' && !customDraft.unit.trim()) {
+      return setError('กรุณาระบุหน่วยวัด');
+    }
+    try {
+      assertLogicalDate(customDraft.startDate);
+    } catch {
+      return setError('วันที่เริ่มต้นไม่ถูกต้อง');
+    }
+
+    try {
+      setSaving(true);
+      await repo.addHabit({
+        name: trimmed,
+        icon: customDraft.icon || '✨',
+        color: customDraft.color,
+        kind: customDraft.kind,
+        target: customDraft.kind === 'boolean' ? 1 : customDraft.target,
+        unit: customDraft.kind === 'quantitative' ? customDraft.unit.trim() : undefined,
+        step:
+          customDraft.kind === 'quantitative' && customDraft.step !== ''
+            ? Number(customDraft.step)
+            : undefined,
+        schedule: customDraft.schedule,
+        startDate: customDraft.startDate,
+      });
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSaving(false);
+    }
+  };
+
+  if (showCustomForm) {
     return (
       <form
         className="card"
         onSubmit={(e) => {
           e.preventDefault();
-          setError(null);
-          void save(draft);
+          void saveCustom();
         }}
       >
-        <h2>{draft.custom ? 'Custom habit' : 'New habit'}</h2>
+        <div className="datebar">
+          <h2>✍️ กำหนดนิสัยด้วยตัวเอง</h2>
+          <button type="button" onClick={() => setShowCustomForm(false)}>
+            กลับไปเลือกกิจกรรม
+          </button>
+        </div>
+
         <label className="field">
-          <span>Name</span>
-          <input value={draft.name} onChange={(e) => set({ name: e.target.value })} autoFocus />
+          <span>ชื่อนิสัย</span>
+          <input
+            value={customDraft.name}
+            onChange={(e) => setCustomDraft({ ...customDraft, name: e.target.value })}
+            placeholder="เช่น วิดพื้น, ดื่มน้ำ, นั่งสมาธิ"
+            autoFocus
+          />
         </label>
+
         <label className="field">
-          <span>Icon (one emoji)</span>
-          <input value={draft.icon} onChange={(e) => set({ icon: firstEmoji(e.target.value) })} placeholder="🙂" />
+          <span>ไอคอน (อิโมจิ)</span>
+          <input
+            value={customDraft.icon}
+            onChange={(e) =>
+              setCustomDraft({ ...customDraft, icon: firstEmoji(e.target.value) || '✨' })
+            }
+            placeholder="✨"
+          />
         </label>
+
         <div className="field">
-          <span>Color</span>
+          <span>สี</span>
           <div className="swatches">
             {HUES.map((hue) => (
-              <button key={hue} type="button" className={`hue-${hue}`} aria-label={hue} aria-pressed={draft.color === hue} onClick={() => set({ color: hue })} />
+              <button
+                key={hue}
+                type="button"
+                className={`hue-${hue}`}
+                aria-pressed={customDraft.color === hue}
+                onClick={() => setCustomDraft({ ...customDraft, color: hue })}
+              />
             ))}
           </div>
         </div>
+
         <label className="field">
-          <span>Type</span>
+          <span>ประเภทการนับ</span>
           <select
-            value={draft.kind}
-            onChange={(e) => {
-              const kind = e.target.value as Draft['kind'];
-              set(kind === 'boolean' ? { kind, target: 1 } : { kind, ...(draft.options[0] ?? { target: 10, unit: draft.unit }) });
-            }}
+            value={customDraft.kind}
+            onChange={(e) =>
+              setCustomDraft({
+                ...customDraft,
+                kind: e.target.value as 'boolean' | 'quantitative',
+                target: e.target.value === 'boolean' ? 1 : 10,
+              })
+            }
           >
-            <option value="boolean">Yes / no</option>
-            <option value="quantitative">Amount</option>
+            <option value="boolean">ทำ / ไม่ทำ (Yes/No)</option>
+            <option value="quantitative">นับจำนวน / วัดค่า (Amount)</option>
           </select>
         </label>
-        {draft.kind === 'quantitative' && (
+
+        {customDraft.kind === 'quantitative' && (
           <>
-            {draft.options.length > 1 && (
-              <div className="field">
-                <span>Measure by</span>
-                <div className="chips">
-                  {draft.options.map((option) => (
-                    <button
-                      key={option.unit}
-                      type="button"
-                      aria-pressed={draft.unit === option.unit}
-                      onClick={() => set({ target: option.target, unit: option.unit, step: '' })}
-                    >
-                      {option.target} {option.unit}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             <label className="field">
-              <span>Daily target</span>
-              <input type="number" min="1" value={draft.target} onChange={(e) => set({ target: Number(e.target.value) })} />
-            </label>
-            <label className="field">
-              <span>Unit</span>
-              <input value={draft.unit} onChange={(e) => set({ unit: e.target.value })} placeholder="ml, glasses, times" />
-            </label>
-            <label className="field">
-              <span>Each tap adds</span>
+              <span>เป้าหมายต่อวัน</span>
               <input
                 type="number"
-                min="0"
-                step="any"
-                value={draft.step}
-                onChange={(e) => set({ step: e.target.value })}
-                placeholder={`${stepFor({ kind: 'quantitative', target: draft.target })} ${draft.unit} (auto)`}
+                min="1"
+                value={customDraft.target}
+                onChange={(e) =>
+                  setCustomDraft({ ...customDraft, target: Number(e.target.value) })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>หน่วย</span>
+              <input
+                value={customDraft.unit}
+                onChange={(e) => setCustomDraft({ ...customDraft, unit: e.target.value })}
+                placeholder="แก้ว, นาที, หน้า, ครั้ง"
               />
             </label>
           </>
         )}
-        <p>Schedule: {describe(draft.schedule)}</p>
-        <label className="field">
-          <span>Started on</span>
-          <input type="date" value={draft.startDate} min={addDays(today, -RETRO_DAYS)} max={today} onChange={(e) => set({ startDate: e.target.value })} />
-        </label>
+
         {error && <p className="error">{error}</p>}
+
         <div className="actions">
-          <button type="submit" className="primary">
-            Save
+          <button type="submit" className="primary" disabled={saving}>
+            {saving ? 'กำลังบันทึก...' : 'บันทึกนิสัย'}
           </button>
-          <button type="button" onClick={() => { setDraft(null); setError(null); }}>
-            Back
+          <button type="button" onClick={() => setShowCustomForm(false)}>
+            ยกเลิก
           </button>
         </div>
       </form>
     );
   }
 
+  const categories = Object.keys(CATEGORY_INFO) as PresetCategory[];
+
   return (
-    <>
-      <div className="datebar">
-        <strong>What do you want to build?</strong>
-        <button onClick={onCancel}>Cancel</button>
+    <div className="add-habit-page">
+      {/* Header */}
+      <div className="preset-header">
+        <div>
+          <h2>เลือกกิจกรรมที่อยากทำ ✨</h2>
+          <p className="subtitle">แตะการ์ดเพื่อเลือกหลายอัน หรือแตะปุ่มเพื่อเพิ่มทันที</p>
+        </div>
+        <button className="cancel-btn" onClick={onCancel}>
+          ปิด
+        </button>
       </div>
-      <button className="template" onClick={() => setDraft(blankCustom(today))}>
-        <span>Make your own</span>
-        <small>Pick a name and a goal</small>
-      </button>
-      {[...templatesByCategory()].map(([category, templates]) => (
-        <section key={category}>
-          <h3>{category}</h3>
-          {templates.map((t) => (
-            <button key={t.id} className="template" onClick={() => setDraft(fromTemplate(t, today))}>
-              <span>
-                <i aria-hidden="true">{t.icon}</i>
-                {t.name}
-              </span>
-              <small>
-                {t.kind === 'quantitative' ? `${t.target} ${t.unit}` : 'Yes / no'} · {describe(t.schedule)}
-              </small>
+
+      {error && <p className="banner">{error}</p>}
+
+      {/* Category Scroll Tabs */}
+      <div className="category-scroll-bar">
+        {categories.map((catKey) => {
+          const info = CATEGORY_INFO[catKey];
+          const isActive = activeCategory === catKey;
+          return (
+            <button
+              key={catKey}
+              type="button"
+              className={`cat-tab ${isActive ? 'active' : ''}`}
+              onClick={() => setActiveCategory(catKey)}
+            >
+              <span>{info.icon}</span>
+              <span>{info.label}</span>
             </button>
-          ))}
-        </section>
-      ))}
-    </>
+          );
+        })}
+      </div>
+
+      {/* Presets Grid Boxes */}
+      <div className="presets-grid">
+        {filteredPresets.map((preset) => {
+          const isSelected = selectedIds.has(preset.id);
+          const isAlreadyAdded = existingNames.has(preset.name.toLowerCase().trim());
+          const cfg = getActivePresetConfig(preset);
+          const currentVariant = presetVariants[preset.id] ?? 0;
+
+          return (
+            <div
+              key={preset.id}
+              className={`preset-box hue-${preset.color} ${isSelected ? 'selected' : ''} ${
+                isAlreadyAdded ? 'already-added' : ''
+              }`}
+              onClick={() => {
+                if (!isAlreadyAdded) toggleSelect(preset.id);
+              }}
+            >
+              <div className="box-top">
+                <span className="box-icon">{preset.icon}</span>
+                <div className="box-title-group">
+                  <h4>{preset.name}</h4>
+                  <span className="box-schedule-badge">
+                    {cfg.target > 1 && preset.kind === 'quantitative'
+                      ? `${cfg.target} ${cfg.unit} · `
+                      : ''}
+                    {describeSchedule(preset.schedule)}
+                  </span>
+                </div>
+                {!isAlreadyAdded && (
+                  <div className={`selection-checkbox ${isSelected ? 'checked' : ''}`}>
+                    {isSelected ? '✓' : ''}
+                  </div>
+                )}
+              </div>
+
+              {/* Preset Variant Chips (if any options exist) */}
+              {preset.options && preset.options.length > 1 && (
+                <div className="preset-variant-chips" onClick={(e) => e.stopPropagation()}>
+                  {preset.options.map((opt, idx) => (
+                    <button
+                      key={opt.unit}
+                      type="button"
+                      className={`variant-pill ${currentVariant === idx ? 'active' : ''}`}
+                      onClick={() =>
+                        setPresetVariants((prev) => ({ ...prev, [preset.id]: idx }))
+                      }
+                    >
+                      {opt.target} {opt.unit}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Action row on card */}
+              <div className="box-actions" onClick={(e) => e.stopPropagation()}>
+                {isAlreadyAdded ? (
+                  <span className="added-badge">มีในลิสต์แล้ว ✓</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="quick-add-btn"
+                    disabled={saving}
+                    onClick={() => handleInstantAdd(preset)}
+                  >
+                    + เพิ่มเลยทันที
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Floating Bottom Bar for Mode B (Multi-Select Batch Add) */}
+      {selectedIds.size > 0 && (
+        <div className="floating-batch-bar">
+          <div className="batch-info">
+            <span>เลือกไว้ <strong>{selectedIds.size}</strong> กิจกรรม</span>
+          </div>
+          <button
+            type="button"
+            className="batch-submit-btn primary"
+            disabled={saving}
+            onClick={handleBatchAdd}
+          >
+            {saving ? 'กำลังเพิ่ม...' : `เพิ่ม ${selectedIds.size} นิสัยที่เลือกลงวันนี้ →`}
+          </button>
+        </div>
+      )}
+
+      {/* Last Resort: Custom Manual Form */}
+      <div className="custom-fallback-section">
+        <p>ไม่เจอกิจกรรมที่ต้องการ?</p>
+        <button
+          type="button"
+          className="custom-form-trigger"
+          onClick={() => setShowCustomForm(true)}
+        >
+          ✍️ พิมพ์กำหนดนิสัยเอง
+        </button>
+      </div>
+    </div>
   );
 }
