@@ -47,6 +47,7 @@ CREATE TABLE habits (
   kind            TEXT NOT NULL CHECK (kind IN ('boolean', 'quantitative')),
   target          REAL NOT NULL DEFAULT 1 CHECK (target > 0),   -- boolean = 1
   unit            TEXT,                                          -- 'ml', 'pages', NULL for boolean
+  step            REAL CHECK (step > 0),                         -- amount per tap; NULL = about a tenth of target
   schedule_type   TEXT NOT NULL CHECK (schedule_type IN ('daily', 'weekdays', 'times_per_week')),
   schedule_days   TEXT,                                          -- JSON array of ISO weekdays 1..7
   times_per_week  INTEGER CHECK (times_per_week BETWEEN 1 AND 7),

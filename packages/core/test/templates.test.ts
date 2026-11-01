@@ -54,3 +54,14 @@ test('repo stores icon and color and lets them be patched', async () => {
   const patched = await repo.updateHabit(habit.id, { icon: '🚴', color: 'orange' });
   assert.deepEqual([patched.icon, patched.color], ['🚴', 'orange']);
 });
+
+test('unit alternatives are valid and only on quantitative templates', () => {
+  for (const t of HABIT_TEMPLATES) {
+    if (!t.alts) continue;
+    assert.equal(t.kind, 'quantitative', t.id);
+    const units = [t.unit, ...t.alts.map((a) => a.unit)];
+    assert.equal(new Set(units).size, units.length, `${t.id} repeats a unit`);
+    for (const a of t.alts) assert.ok(a.target > 0 && a.unit.trim(), t.id);
+  }
+  assert.ok(HABIT_TEMPLATES.filter((t) => t.alts).length >= 20);
+});

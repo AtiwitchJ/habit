@@ -3,9 +3,10 @@ import type { HabitRecord, HabitRepo } from './repo.ts';
 
 export const RETRO_DAYS = 30;
 
-// One tap adds this much. Boolean habits: 1. Quantitative: about a tenth of the target.
-export function stepFor(habit: Pick<HabitRecord, 'kind' | 'target'>): number {
-  return habit.kind === 'boolean' ? 1 : Math.max(1, Math.round(habit.target / 10));
+// One tap adds this much. Boolean habits: 1. Quantitative: the habit's own step, else about a tenth of the target.
+export function stepFor(habit: Pick<HabitRecord, 'kind' | 'target' | 'step'>): number {
+  if (habit.kind === 'boolean') return 1;
+  return habit.step ?? Math.max(1, Math.round(habit.target / 10));
 }
 
 export function canLog(habit: Pick<HabitRecord, 'startDate'>, date: LogicalDate, today: LogicalDate): boolean {

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { RETRO_DAYS } from '@habit/core/checkin';
+import { RETRO_DAYS, stepFor } from '@habit/core/checkin';
 import { addDays, assertLogicalDate, type LogicalDate } from '@habit/core/logical-date';
 import type { Schedule } from '@habit/core/streak';
 import { HUES, type Hue } from '@habit/core/repo';
-import { CATEGORY_HUE, templatesByCategory, type HabitTemplate } from '@habit/core/templates';
+import { CATEGORY_HUE, templatesByCategory, type HabitTemplate, type UnitOption } from '@habit/core/templates';
 import { repo } from '../repo-local.ts';
 
 interface Draft {
@@ -11,6 +11,8 @@ interface Draft {
   kind: 'boolean' | 'quantitative';
   target: number;
   unit: string;
+  step: string; // '' = automatic
+  options: UnitOption[]; // template's ways to measure, first is the default
   schedule: Schedule;
   startDate: string;
   templateId?: string;
@@ -32,11 +34,11 @@ function describe(schedule: Schedule): string {
 }
 
 function fromTemplate(t: HabitTemplate, today: LogicalDate): Draft {
-  return { name: t.name, kind: t.kind, target: t.target, unit: t.unit ?? '', schedule: t.schedule, startDate: today, templateId: t.id, reminderTime: t.reminderTime, icon: t.icon, color: CATEGORY_HUE[t.category], custom: false };
+  return { name: t.name, kind: t.kind, target: t.target, unit: t.unit ?? '', step: '', options: t.unit ? [{ target: t.target, unit: t.unit }, ...(t.alts ?? [])] : [], schedule: t.schedule, startDate: today, templateId: t.id, reminderTime: t.reminderTime, icon: t.icon, color: CATEGORY_HUE[t.category], custom: false };
 }
 
 function blankCustom(today: LogicalDate): Draft {
-  return { name: '', kind: 'boolean', target: 1, unit: '', schedule: { type: 'daily' }, startDate: today, icon: '', color: 'green', custom: true };
+  return { name: '', kind: 'boolean', target: 1, unit: '', step: '', options: [], schedule: { type: 'daily' }, startDate: today, icon: '', color: 'green', custom: true };
 }
 
 export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDone(): void; onCancel(): void }) {
@@ -48,6 +50,7 @@ export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDo
     if (!name) return setError('Name is required.');
     if (d.kind === 'quantitative' && !(d.target > 0)) return setError('Target must be greater than 0.');
     if (d.kind === 'quantitative' && !d.unit.trim()) return setError('Unit is required.');
+    if (d.kind === 'quantitative' && d.step !== '' && !(Number(d.step) > 0)) return setError('Each tap must add more than 0.');
     try {
       assertLogicalDate(d.startDate);
     } catch {
@@ -61,6 +64,7 @@ export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDo
       kind: d.kind,
       target: d.kind === 'boolean' ? 1 : d.target,
       unit: d.kind === 'quantitative' ? d.unit.trim() : undefined,
+      step: d.kind === 'quantitative' && d.step !== '' ? Number(d.step) : undefined,
       schedule: d.schedule,
       startDate: d.startDate,
       templateId: d.templateId,
@@ -99,27 +103,57 @@ export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDo
             ))}
           </div>
         </div>
-        {draft.custom && (
-          <label className="field">
-            <span>Type</span>
-            <select value={draft.kind} onChange={(e) => set({ kind: e.target.value as Draft['kind'], target: e.target.value === 'boolean' ? 1 : 10 })}>
-              <option value="boolean">Yes / no</option>
-              <option value="quantitative">Amount</option>
-            </select>
-          </label>
-        )}
+        <label className="field">
+          <span>Type</span>
+          <select
+            value={draft.kind}
+            onChange={(e) => {
+              const kind = e.target.value as Draft['kind'];
+              set(kind === 'boolean' ? { kind, target: 1 } : { kind, ...(draft.options[0] ?? { target: 10, unit: draft.unit }) });
+            }}
+          >
+            <option value="boolean">Yes / no</option>
+            <option value="quantitative">Amount</option>
+          </select>
+        </label>
         {draft.kind === 'quantitative' && (
           <>
+            {draft.options.length > 1 && (
+              <div className="field">
+                <span>Measure by</span>
+                <div className="chips">
+                  {draft.options.map((option) => (
+                    <button
+                      key={option.unit}
+                      type="button"
+                      aria-pressed={draft.unit === option.unit}
+                      onClick={() => set({ target: option.target, unit: option.unit, step: '' })}
+                    >
+                      {option.target} {option.unit}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <label className="field">
               <span>Daily target</span>
               <input type="number" min="1" value={draft.target} onChange={(e) => set({ target: Number(e.target.value) })} />
             </label>
-            {draft.custom && (
-              <label className="field">
-                <span>Unit</span>
-                <input value={draft.unit} onChange={(e) => set({ unit: e.target.value })} placeholder="ml, pages, min" />
-              </label>
-            )}
+            <label className="field">
+              <span>Unit</span>
+              <input value={draft.unit} onChange={(e) => set({ unit: e.target.value })} placeholder="ml, glasses, times" />
+            </label>
+            <label className="field">
+              <span>Each tap adds</span>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={draft.step}
+                onChange={(e) => set({ step: e.target.value })}
+                placeholder={`${stepFor({ kind: 'quantitative', target: draft.target })} ${draft.unit} (auto)`}
+              />
+            </label>
           </>
         )}
         <p>Schedule: {describe(draft.schedule)}</p>

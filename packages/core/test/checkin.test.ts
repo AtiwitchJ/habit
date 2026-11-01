@@ -21,6 +21,11 @@ test('stepFor: boolean 1, quantitative about a tenth of target, min 1', () => {
   assert.equal(stepFor({ kind: 'quantitative', target: 5 }), 1);
 });
 
+test('stepFor: a habit-set step wins for quantitative, never for boolean', () => {
+  assert.equal(stepFor({ kind: 'quantitative', target: 2000, step: 250 }), 250);
+  assert.equal(stepFor({ kind: 'boolean', target: 1, step: 5 }), 1);
+});
+
 test('canLog: not before start, not in the future, not more than 30 days back', () => {
   const habit = { startDate: '2026-09-01' };
   assert.equal(canLog(habit, '2026-10-30', TODAY), true);

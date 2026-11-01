@@ -108,6 +108,8 @@ details summary { cursor: pointer; color: var(--muted); font-weight: 700; margin
 .swatches button { width: 36px; height: 36px; padding: 0; border-radius: 50%; background: var(--accent); border-color: transparent; }
 .swatches button[aria-pressed="true"] { outline: 3px solid var(--text); outline-offset: 2px; }
 .template i { font-style: normal; margin-right: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
 .template { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; margin-bottom: 8px; border-radius: var(--radius-sm); padding: 12px 16px; }
 .template:hover:not(:disabled) { transform: none; border-color: var(--accent); }

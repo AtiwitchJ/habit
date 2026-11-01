@@ -24,6 +24,12 @@ export interface HabitTemplate {
   unit?: string; // required when quantitative
   schedule: Schedule;
   reminderTime?: string; // 'HH:MM' suggestion
+  alts?: UnitOption[]; // other ways to measure the same activity
+}
+
+export interface UnitOption {
+  target: number;
+  unit: string;
 }
 
 const daily: Schedule = { type: 'daily' };
@@ -36,7 +42,7 @@ const bool = (id: string, icon: string, name: string, category: TemplateCategory
 const qty = (id: string, icon: string, name: string, category: TemplateCategory, target: number, unit: string, schedule: Schedule = daily, reminderTime?: string): HabitTemplate =>
   ({ id, icon, name, category, kind: 'quantitative', target, unit, schedule, reminderTime });
 
-export const HABIT_TEMPLATES: readonly HabitTemplate[] = [
+const BASE_TEMPLATES: HabitTemplate[] = [
   // health
   qty('drink-water', '💧', 'Drink water', 'health', 2000, 'ml'),
   bool('sleep-on-time', '🌙', 'Go to bed on time', 'health', daily, '22:30'),
@@ -174,6 +180,47 @@ export const HABIT_TEMPLATES: readonly HabitTemplate[] = [
   qty('short-shower', '🚿', 'Short shower', 'eco', 5, 'min', daily, '07:15'),
   bool('compost', '🍂', 'Compost food scraps', 'eco', perWeek(4)),
 ];
+
+const o = (target: number, unit: string): UnitOption => ({ target, unit });
+
+// Count-style options ("glasses", "times") pair with a one-per-tap step in the UI.
+const UNIT_ALTS: Record<string, UnitOption[]> = {
+  'drink-water': [o(8, 'glasses'), o(4, 'bottles')],
+  'sleep-hours': [o(420, 'min')],
+  'eat-fruit': [o(300, 'g')],
+  'limit-caffeine': [o(200, 'mg')],
+  steps: [o(30, 'min'), o(5, 'km')],
+  run: [o(30, 'min'), o(1, 'times')],
+  pushups: [o(3, 'sets'), o(5, 'min')],
+  swim: [o(500, 'm'), o(30, 'min')],
+  plank: [o(3, 'times')],
+  cycle: [o(45, 'min')],
+  squats: [o(3, 'sets')],
+  'take-stairs': [o(3, 'times')],
+  'jump-rope': [o(300, 'skips')],
+  meditate: [o(1, 'times'), o(2, 'sessions')],
+  'screen-time': [o(1, 'h')],
+  breathing: [o(10, 'breaths'), o(3, 'times')],
+  read: [o(30, 'min'), o(1, 'chapters')],
+  language: [o(1, 'lessons'), o(10, 'words')],
+  study: [o(2, 'pomodoros'), o(1, 'h')],
+  'practice-instrument': [o(3, 'songs')],
+  flashcards: [o(10, 'min')],
+  'coding-practice': [o(1, 'problems')],
+  'deep-work': [o(2, 'blocks'), o(3, 'pomodoros')],
+  pomodoro: [o(100, 'min')],
+  'save-money': [o(1, 'times')],
+  draw: [o(1, 'sketches')],
+  'write-words': [o(2, 'pages'), o(30, 'min')],
+  'play-music': [o(3, 'songs')],
+  sunlight: [o(1, 'times')],
+  'walk-outside': [o(3, 'km'), o(4000, 'steps')],
+  'family-time': [o(1, 'activities')],
+  upskill: [o(1, 'lessons')],
+  'short-shower': [o(1, 'times')],
+};
+
+export const HABIT_TEMPLATES: readonly HabitTemplate[] = BASE_TEMPLATES.map((t) => (UNIT_ALTS[t.id] ? { ...t, alts: UNIT_ALTS[t.id] } : t));
 
 export function templatesByCategory(): Map<TemplateCategory, HabitTemplate[]> {
   const grouped = new Map<TemplateCategory, HabitTemplate[]>();

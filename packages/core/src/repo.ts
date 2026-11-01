@@ -18,6 +18,7 @@ export interface HabitRecord {
   reminderTime?: string;
   icon?: string; // one emoji
   color?: Hue; // unset = green
+  step?: number; // amount one tap adds (quantitative); unset = about a tenth of target
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -38,7 +39,7 @@ export interface LogRecord {
 
 export type NewHabit = Omit<HabitRecord, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
 export type NewLog = Omit<LogRecord, 'id' | 'createdAt' | 'deletedAt'>;
-export type HabitPatch = Partial<Pick<HabitRecord, 'name' | 'target' | 'startDate' | 'reminderTime' | 'icon' | 'color'>>;
+export type HabitPatch = Partial<Pick<HabitRecord, 'name' | 'target' | 'startDate' | 'reminderTime' | 'icon' | 'color' | 'step'>>;
 
 // Async so a SQLite-backed repo can replace the in-memory one without touching the UI.
 export interface HabitRepo {
