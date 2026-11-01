@@ -23,7 +23,14 @@ export function HabitRow({ habit, summary, canEdit, selected, onSelect, onToggle
         </small>
       </button>
       {habit.kind === 'boolean' ? (
-        <button className="check" aria-pressed={summary.done} disabled={!canEdit} onClick={onToggle}>
+        <button
+          className="check"
+          aria-pressed={summary.done}
+          aria-label={summary.done ? `${habit.name} done, tap to undo` : `Mark ${habit.name} done`}
+          title={summary.done ? 'Tap to undo' : 'Mark done'}
+          disabled={!canEdit}
+          onClick={onToggle}
+        >
           {summary.done ? 'Done' : 'Mark done'}
         </button>
       ) : (

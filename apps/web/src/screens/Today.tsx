@@ -29,6 +29,9 @@ export function Today({ today, onAdd }: { today: LogicalDate; onAdd(): void }) {
     void reload();
   }, [reload]);
 
+  // Remote changes merged by sync land in the repo; refresh when they do.
+  useEffect(() => repo.subscribe(() => void reload()), [reload]);
+
   const run = async (action: () => Promise<void>) => {
     try {
       setError(null);
@@ -88,13 +91,16 @@ export function Today({ today, onAdd }: { today: LogicalDate; onAdd(): void }) {
 
       {loaded && habits.length === 0 ? (
         <div className="card empty">
-          <p>No habits yet.</p>
+          <p>Nothing to track yet.</p>
           <button className="primary" onClick={onAdd}>
             Add your first habit
           </button>
         </div>
       ) : (
         <>
+          {dueRows.length > 0 && dueRows.every((row) => row.summary.done) && (
+            <p className="all-done">All done for today. Nice work!</p>
+          )}
           <ul className="rows">{dueRows.map(renderRow)}</ul>
           {otherRows.length > 0 && (
             <details>
