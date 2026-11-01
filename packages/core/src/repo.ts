@@ -42,6 +42,19 @@ export interface LogRecord {
   deletedAt?: string | null;
 }
 
+export interface TaskRecord {
+  id: string;
+  title: string;
+  dueDate?: LogicalDate;
+  doneAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export type NewTask = Pick<TaskRecord, 'title' | 'dueDate'>;
+export type TaskPatch = Partial<Pick<TaskRecord, 'title' | 'dueDate' | 'doneAt'>>;
+
 export type NewHabit = Omit<HabitRecord, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
 export type NewLog = Omit<LogRecord, 'id' | 'createdAt' | 'deletedAt'>;
 export type HabitPatch = Partial<
@@ -73,17 +86,22 @@ export interface HabitRepo {
   listLogs(habitId: string): Promise<LogRecord[]>;
   addLog(input: NewLog): Promise<LogRecord>;
   removeLog(id: string): Promise<void>;
+  listTasks(): Promise<TaskRecord[]>;
+  addTask(input: NewTask): Promise<TaskRecord>;
+  updateTask(id: string, patch: TaskPatch): Promise<TaskRecord>;
+  removeTask(id: string): Promise<void>;
 }
 
 export interface RepoState {
   habits: HabitRecord[];
   logs: LogRecord[];
+  tasks?: TaskRecord[]; // absent in state saved before tasks existed
 }
 
-export type SyncEntity = 'habits' | 'habit_logs';
+export type SyncEntity = 'habits' | 'habit_logs' | 'tasks';
 export interface SyncItem {
   entity: SyncEntity;
-  record: HabitRecord | LogRecord;
+  record: HabitRecord | LogRecord | TaskRecord;
 }
 
 // Last-write-wins version of a record. A tombstone later than the last update is the version.
@@ -106,6 +124,7 @@ function isValidItem(item: SyncItem): boolean {
   const record = item?.record as unknown as Record<string, unknown> | undefined;
   if (!record || typeof record.id !== 'string' || !record.id || typeof record.createdAt !== 'string') return false;
   if (item.entity === 'habits') return typeof record.name === 'string';
+  if (item.entity === 'tasks') return typeof record.title === 'string';
   if (item.entity === 'habit_logs') return typeof record.habitId === 'string' && typeof record.logicalDate === 'string';
   return false;
 }
@@ -125,7 +144,7 @@ export interface MemoryRepoOptions {
 
 export function createMemoryRepo(options: MemoryRepoOptions = {}): LocalRepo {
   const now = options.now ?? (() => new Date());
-  const state: RepoState = options.seed ? structuredClone(options.seed) : { habits: [], logs: [] };
+  const state: RepoState & { tasks: TaskRecord[] } = { tasks: [], ...(options.seed ? structuredClone(options.seed) : { habits: [], logs: [] }) };
   const listeners = new Set<() => void>();
   const save = () => {
     options.onChange?.(state);
@@ -136,6 +155,12 @@ export function createMemoryRepo(options: MemoryRepoOptions = {}): LocalRepo {
     const habit = state.habits.find((h) => h.id === id && !h.deletedAt);
     if (!habit) throw new RangeError(`Unknown habit: ${id}`);
     return habit;
+  };
+
+  const liveTask = (id: string): TaskRecord => {
+    const task = state.tasks.find((t) => t.id === id && !t.deletedAt);
+    if (!task) throw new RangeError(`Unknown task: ${id}`);
+    return task;
   };
 
   return {
@@ -177,17 +202,39 @@ export function createMemoryRepo(options: MemoryRepoOptions = {}): LocalRepo {
       log.deletedAt = now().toISOString();
       save();
     },
+    async listTasks() {
+      return state.tasks.filter((t) => !t.deletedAt).map((t) => ({ ...t }));
+    },
+    async addTask(input) {
+      const at = now();
+      const task: TaskRecord = { title: input.title, dueDate: input.dueDate, doneAt: null, id: uuidv7(at.getTime()), createdAt: at.toISOString(), updatedAt: at.toISOString(), deletedAt: null };
+      state.tasks.push(task);
+      save();
+      return { ...task };
+    },
+    async updateTask(id, patch) {
+      const task = liveTask(id);
+      Object.assign(task, patch, { updatedAt: now().toISOString() });
+      save();
+      return { ...task };
+    },
+    async removeTask(id) {
+      const task = liveTask(id);
+      task.deletedAt = task.updatedAt = now().toISOString();
+      save();
+    },
     snapshot() {
       return [
         ...state.habits.map((record) => ({ entity: 'habits' as const, record: structuredClone(record) })),
         ...state.logs.map((record) => ({ entity: 'habit_logs' as const, record: structuredClone(record) })),
+        ...state.tasks.map((record) => ({ entity: 'tasks' as const, record: structuredClone(record) })),
       ];
     },
     merge(items) {
       let applied = 0;
       for (const item of items) {
         if (!isValidItem(item)) continue;
-        const list = (item.entity === 'habits' ? state.habits : state.logs) as SyncItem['record'][];
+        const list = (item.entity === 'habits' ? state.habits : item.entity === 'tasks' ? state.tasks : state.logs) as SyncItem['record'][];
         const index = list.findIndex((r) => r.id === item.record.id);
         if (index === -1) {
           list.push(structuredClone(item.record));

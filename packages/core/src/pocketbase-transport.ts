@@ -23,7 +23,7 @@ export interface PbLike {
 
 export const RECORDS_COLLECTION = 'records';
 
-const ENTITIES: readonly SyncEntity[] = ['habits', 'habit_logs'];
+const ENTITIES: readonly SyncEntity[] = ['habits', 'habit_logs', 'tasks'];
 
 // Filter values go into PocketBase filter strings. Always quote and escape them.
 export function quote(value: string): string {

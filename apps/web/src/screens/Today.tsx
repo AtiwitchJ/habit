@@ -19,6 +19,7 @@ import { HabitDetailModal } from '../components/HabitDetailModal.tsx';
 import { HabitRow } from '../components/HabitRow.tsx';
 import { Heatmap } from '../components/Heatmap.tsx';
 import { Calendar } from '../components/Calendar.tsx';
+import { Tasks } from '../components/Tasks.tsx';
 import { repo } from '../repo-local.ts';
 
 export function Today({
@@ -37,7 +38,7 @@ export function Today({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailHabit, setDetailHabit] = useState<HabitRecord | null>(null);
   const [viewArchived, setViewArchived] = useState(false);
-  const [view, setView] = useState<'habits' | 'journal' | 'calendar'>('habits');
+  const [view, setView] = useState<'habits' | 'journal' | 'calendar' | 'tasks'>('habits');
   const [journalHabit, setJournalHabit] = useState('');
   const [error, setError] = useState<string | null>(null);
   const running = useRef(false);
@@ -127,8 +128,9 @@ export function Today({
         <button type="button" className={view === 'habits' ? 'active' : ''} aria-pressed={view === 'habits'} onClick={() => setView('habits')}>Habits</button>
         <button type="button" className={view === 'journal' ? 'active' : ''} aria-pressed={view === 'journal'} onClick={() => setView('journal')}>Journal</button>
         <button type="button" className={view === 'calendar' ? 'active' : ''} aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>Calendar</button>
+        <button type="button" className={view === 'tasks' ? 'active' : ''} aria-pressed={view === 'tasks'} onClick={() => setView('tasks')}>Tasks</button>
       </nav>
-      {view === 'calendar' ? <Calendar today={today} habits={habits} logs={logs} /> : view === 'journal' ? (
+      {view === 'tasks' ? <Tasks today={today} /> : view === 'calendar' ? <Calendar today={today} habits={habits} logs={logs} /> : view === 'journal' ? (
         <section className="card">
           <h2>Journal</h2>
           <label>Habit{' '}
