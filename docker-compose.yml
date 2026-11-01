@@ -1,0 +1,27 @@
+# Local full stack: PocketBase API on :8090, web app on :8081.
+#   docker compose up --build
+# Admin UI: http://localhost:8090/_/  (create the first superuser there or with `docker compose exec pocketbase pocketbase superuser upsert ...`)
+services:
+  pocketbase:
+    build: ./backend/pocketbase
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - pb_data:/pb/pb_data
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      # Baked in at build time. Change it and rebuild the web image.
+      args:
+        VITE_PB_URL: http://100.105.249.12:8090
+    restart: unless-stopped
+    depends_on:
+      - pocketbase
+    ports:
+      - "8081:80"
+
+volumes:
+  pb_data:

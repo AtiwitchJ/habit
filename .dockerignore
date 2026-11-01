@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.claude
+.env*
+**/.env*
+backend/pocketbase/pb_data
+backend/pocketbase/*.exe
+backend/pocketbase/*.zip
