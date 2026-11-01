@@ -6,26 +6,52 @@ interface Props {
   summary: HabitSummary;
   canEdit: boolean;
   selected: boolean;
+  isSkipped?: boolean;
+  isFrozen?: boolean;
   onSelect(): void;
+  onOpenDetail(): void;
   onToggle(): void;
   onPlus(): void;
   onMinus(): void;
 }
 
-export function HabitRow({ habit, summary, canEdit, selected, onSelect, onToggle, onPlus, onMinus }: Props) {
+export function HabitRow({
+  habit,
+  summary,
+  canEdit,
+  selected,
+  isSkipped,
+  isFrozen,
+  onSelect,
+  onOpenDetail,
+  onToggle,
+  onPlus,
+  onMinus,
+}: Props) {
   const unit = habit.schedule.type === 'times_per_week' ? 'wk' : 'd';
   return (
     <li className={`row hue-${habit.color ?? 'green'}${selected ? ' selected' : ''}`}>
-      <button className="name" onClick={onSelect}>
+      <button
+        className="name"
+        onClick={() => {
+          onSelect();
+          onOpenDetail();
+        }}
+      >
         <span>
           {habit.icon && <i aria-hidden="true">{habit.icon}</i>}
           {habit.name}
         </span>
         <small>
           {summary.streak.current} {unit} streak
+          {habit.archivedAt && ' · (Archived)'}
         </small>
       </button>
-      {habit.kind === 'boolean' ? (
+      {isSkipped || isFrozen ? (
+        <button className="excused-tag" onClick={onOpenDetail} title="Excused day. Tap to view or edit.">
+          {isSkipped ? '⏸️ Skipped' : '❄️ Frozen'}
+        </button>
+      ) : habit.kind === 'boolean' ? (
         <button
           className="check"
           aria-pressed={summary.done}
