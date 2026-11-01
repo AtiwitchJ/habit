@@ -8,7 +8,15 @@ import { HabitRow } from '../components/HabitRow.tsx';
 import { Heatmap } from '../components/Heatmap.tsx';
 import { repo } from '../repo-local.ts';
 
-export function Today({ today, onAdd }: { today: LogicalDate; onAdd(): void }) {
+export function Today({
+  today,
+  onAdd,
+  onEdit,
+}: {
+  today: LogicalDate;
+  onAdd(): void;
+  onEdit?(habit: HabitRecord): void;
+}) {
   const [habits, setHabits] = useState<HabitRecord[]>([]);
   const [logs, setLogs] = useState<Record<string, LogRecord[]>>({});
   const [loaded, setLoaded] = useState(false);

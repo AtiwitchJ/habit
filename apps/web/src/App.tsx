@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { currentLogicalDate, safeBoundary } from '@habit/core/logical-date';
+import type { HabitRecord } from '@habit/core/repo';
 import { AccountBar } from './components/AccountBar.tsx';
 import { claimDevice, isGuest, pb, setGuest } from './cloud.ts';
 import { persistent, storage } from './repo-local.ts';
 import { AddHabit } from './screens/AddHabit.tsx';
+import { EditHabit } from './screens/EditHabit.tsx';
 import { Login } from './screens/Login.tsx';
 import { Today } from './screens/Today.tsx';
 import { browserTimeZone, loadRolloverMinutes, saveRolloverMinutes } from './settings.ts';
@@ -16,7 +18,8 @@ function greeting(hour: number): string {
 }
 
 export function App() {
-  const [screen, setScreen] = useState<'today' | 'add'>('today');
+  const [screen, setScreen] = useState<'today' | 'add' | 'edit'>('today');
+  const [editingHabit, setEditingHabit] = useState<HabitRecord | null>(null);
   const [rolloverMinutes, setRolloverMinutes] = useState(() => loadRolloverMinutes(storage));
   const [user, setUser] = useState(() => (pb?.authStore.isValid ? pb.authStore.record : null));
   const [guest, setGuestState] = useState(isGuest);
@@ -86,7 +89,27 @@ export function App() {
       {pb && needsLogin ? (
         <Login pb={pb} onAuthed={() => chooseGuest(false)} onSkip={() => chooseGuest(true)} />
       ) : screen === 'today' ? (
-        <Today today={today} onAdd={() => setScreen('add')} />
+        <Today
+          today={today}
+          onAdd={() => setScreen('add')}
+          onEdit={(habit) => {
+            setEditingHabit(habit);
+            setScreen('edit');
+          }}
+        />
+      ) : screen === 'edit' && editingHabit ? (
+        <EditHabit
+          habit={editingHabit}
+          today={today}
+          onDone={() => {
+            setEditingHabit(null);
+            setScreen('today');
+          }}
+          onCancel={() => {
+            setEditingHabit(null);
+            setScreen('today');
+          }}
+        />
       ) : (
         <AddHabit today={today} onDone={() => setScreen('today')} onCancel={() => setScreen('today')} />
       )}
