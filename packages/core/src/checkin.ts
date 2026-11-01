@@ -22,11 +22,16 @@ export async function checkIn(
   note?: string,
 ): Promise<void> {
   if (!canLog(habit, date, today)) throw new RangeError(`Cannot log ${date} for habit ${habit.id}`);
+  const done = (await repo.listLogs(habit.id))
+    .filter((log) => !log.deletedAt && log.kind === 'complete' && log.logicalDate === date)
+    .reduce((sum, log) => sum + log.value, 0);
+  const value = Math.min(stepFor(habit), habit.target - done); // never log past target
+  if (value <= 0) return;
   await repo.addLog({
     habitId: habit.id,
     logicalDate: date,
     kind: 'complete',
-    value: stepFor(habit),
+    value,
     note,
     occurredAt: now.toISOString(),
     isRetroactive: date < today,

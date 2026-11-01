@@ -99,3 +99,11 @@ test('skipDay adds a skip log and freezeDay adds a freeze log', async () => {
   assert.equal(logs[0].kind, 'freeze');
 });
 
+
+test('quantitative: check-in never goes past target, last step is trimmed', async () => {
+  const { repo, habit } = await setup({ name: 'Water', kind: 'quantitative', target: 8, unit: 'glasses', step: 3, schedule: { type: 'daily' }, startDate: '2026-10-29' });
+  for (let i = 0; i < 5; i++) await checkIn(repo, habit, TODAY, TODAY, NOW);
+  const logs = await repo.listLogs(habit.id);
+  assert.equal(summarize(habit, logs, TODAY, TODAY).value, 8); // 3 + 3 + 2, then no-ops
+  assert.equal(logs.length, 3);
+});

@@ -68,9 +68,9 @@ export function HabitRow({
             −
           </button>
           <span className={summary.done ? 'done' : ''}>
-            {summary.value} / {habit.target} {habit.unit}
+            {Math.min(summary.value, habit.target)} / {habit.target} {habit.unit}
           </span>
-          <button aria-label={`Add one step to ${habit.name}`} disabled={!canEdit} onClick={onPlus}>
+          <button aria-label={`Add one step to ${habit.name}`} disabled={!canEdit || summary.done} onClick={onPlus}>
             +
           </button>
         </div>

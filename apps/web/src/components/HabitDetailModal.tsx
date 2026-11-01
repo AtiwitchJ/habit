@@ -162,9 +162,9 @@ export function HabitDetailModal({
                       −
                     </button>
                     <span className={isDone ? 'done' : ''}>
-                      {daySum} / {habit.target} {habit.unit}
+                      {Math.min(daySum, habit.target)} / {habit.target} {habit.unit}
                     </span>
-                    <button onClick={onPlus}>+</button>
+                    <button disabled={isDone} onClick={onPlus}>+</button>
                   </div>
                 </div>
               )}
