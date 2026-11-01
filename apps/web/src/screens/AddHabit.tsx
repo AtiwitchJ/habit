@@ -123,12 +123,12 @@ export function AddHabit({ today, onDone, onCancel }: { today: LogicalDate; onDo
   return (
     <>
       <div className="datebar">
-        <strong>Add a habit</strong>
+        <strong>What do you want to build?</strong>
         <button onClick={onCancel}>Cancel</button>
       </div>
       <button className="template" onClick={() => setDraft(blankCustom(today))}>
-        <span>Custom habit</span>
-        <small>Your own name and target</small>
+        <span>Make your own</span>
+        <small>Pick a name and a goal</small>
       </button>
       {[...templatesByCategory()].map(([category, templates]) => (
         <section key={category}>

@@ -5,6 +5,12 @@ import { AddHabit } from './screens/AddHabit.tsx';
 import { Today } from './screens/Today.tsx';
 import { browserTimeZone, loadRolloverMinutes, saveRolloverMinutes } from './settings.ts';
 
+function greeting(hour: number): string {
+  if (hour < 12) return 'Good morning! Small steps add up.';
+  if (hour < 18) return 'Good afternoon! How is it going?';
+  return 'Good evening! Still time for a habit.';
+}
+
 export function App() {
   const [screen, setScreen] = useState<'today' | 'add'>('today');
   const [rolloverMinutes, setRolloverMinutes] = useState(() => loadRolloverMinutes(storage));
@@ -41,6 +47,7 @@ export function App() {
           </select>
         </label>
       </div>
+      <p className="greeting">{greeting(new Date().getHours())}</p>
       {!persistent && <p className="banner">Storage is unavailable. Your data will not persist after you close this tab.</p>}
       {warning && <p className="banner">{warning}</p>}
       {screen === 'today' ? (
