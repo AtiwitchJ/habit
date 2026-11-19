@@ -109,6 +109,37 @@ export function HabitDetailModal({
           </button>
         </div>
 
+        {/* Habit Strength (Loop Habit Tracker Reverse Engineered) */}
+        {stats.strength && (
+          <div className={`strength-card strength-${stats.strength.status}`}>
+            <div className="strength-header">
+              <div className="strength-meta">
+                <span className="strength-label">ความแข็งแรงของนิสัย (Habit Strength)</span>
+                <span className="strength-badge">{stats.strength.statusLabelTh}</span>
+              </div>
+              <div className="strength-value-box">
+                <span className="strength-score">{stats.strength.score}%</span>
+                <span className={`strength-trend trend-${stats.strength.trend}`}>
+                  {stats.strength.trend === 'rising'
+                    ? `↗ +${stats.strength.delta7d}%`
+                    : stats.strength.trend === 'falling'
+                    ? `↘ ${stats.strength.delta7d}%`
+                    : '→ คงที่'}
+                </span>
+              </div>
+            </div>
+            <div className="strength-bar-bg">
+              <div
+                className="strength-bar-fill"
+                style={{ width: `${Math.min(100, stats.strength.score)}%` }}
+              />
+            </div>
+            <p className="strength-resilience-hint">
+              🛡️ หากพลาดวันถัดไป ความแข็งแรงจะอยู่ที่ {stats.strength.projectedMissScore}% (สถิติไม่ถูกรีเซ็ตเป็น 0)
+            </p>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="stats-grid">
           <div className="stat-card">

@@ -1,6 +1,7 @@
 import { addDays, type LogicalDate } from './logical-date.ts';
 import type { HabitRecord, LogRecord } from './repo.ts';
 import { evaluateStreak, isDue, type StreakResult } from './streak.ts';
+import { computeHabitStrength, type HabitStrengthSummary } from './habit-strength.ts';
 
 export interface HabitSummary {
   due: boolean;
@@ -14,6 +15,7 @@ export interface HabitDetailStats {
   longestStreak: number;
   totalCompletions: number;
   completionRate30d: number; // 0 to 100
+  strength: HabitStrengthSummary;
 }
 
 export function summarize(habit: HabitRecord, logs: LogRecord[], date: LogicalDate, today: LogicalDate): HabitSummary {
@@ -66,11 +68,18 @@ export function computeHabitStats(habit: HabitRecord, logs: LogRecord[], today: 
 
   const completionRate30d = dueDays30d > 0 ? Math.round((doneDays30d / dueDays30d) * 100) : 0;
 
+  const strength = computeHabitStrength(
+    { startDate: habit.startDate, target: habit.target, schedule: habit.schedule, quit: habit.quit },
+    logs,
+    today,
+  );
+
   return {
     currentStreak: streak.current,
     longestStreak: streak.longest,
     totalCompletions,
     completionRate30d,
+    strength,
   };
 }
 

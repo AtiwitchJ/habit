@@ -60,6 +60,20 @@ select, input { font: inherit; color: inherit; background: var(--surface); borde
 .datebar strong { flex: 1; min-width: 0; text-align: center; font-family: var(--font-display); font-size: 1rem; white-space: nowrap; }
 
 .card { background: var(--surface); border-radius: var(--radius); padding: 18px; margin-top: 16px; box-shadow: var(--shadow); }
+.player-hud, .boss-card { position: relative; display: grid; gap: 10px; }
+.player-hud-heading, .boss-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.player-hud-heading strong, .boss-heading h2 { font-family: var(--font-display); font-size: 1.05rem; margin: 0; }
+.hud-meter { display: grid; grid-template-columns: auto minmax(50px, 1fr) auto; align-items: center; gap: 8px; font-size: .85rem; font-weight: 700; }
+.hud-meter progress { width: 100%; height: 12px; border: 0; border-radius: 999px; overflow: hidden; appearance: none; }
+.hud-meter progress::-webkit-progress-bar { background: var(--border); border-radius: 999px; }
+.hp-meter progress::-webkit-progress-value { background: linear-gradient(90deg, #e85c62, #f28b72); border-radius: 999px; }
+.xp-meter progress::-webkit-progress-value { background: linear-gradient(90deg, #9272e8, #5fa8ed); border-radius: 999px; }
+.boss-meter progress::-webkit-progress-value { background: linear-gradient(90deg, #e86c57, #f3a044); border-radius: 999px; transition: width .5s ease; }
+.shield-count { position: absolute; right: 18px; bottom: 8px; color: var(--muted); font-size: .82rem; }
+.boss-heading { justify-content: flex-start; }
+.boss-heading > span { font-size: 2rem; }
+.boss-heading small { color: var(--muted); }
+.boss-card p { margin: 0; font-weight: 700; color: var(--danger); }
 .empty { text-align: center; padding: 32px 20px; }
 .empty p { font-family: var(--font-display); font-size: 1.2rem; margin: 0 0 14px; }
 .all-done { text-align: center; font-family: var(--font-display); font-size: 1.1rem; color: var(--accent); background: var(--accent-soft); border-radius: var(--radius); padding: 12px 16px; margin: 0 0 10px; }
@@ -252,6 +266,104 @@ details summary { cursor: pointer; color: var(--muted); font-weight: 700; margin
   color: var(--muted);
   font-weight: 700;
   margin-top: 2px;
+}
+
+/* Habit Strength Card (Loop Habit Tracker Reverse Engineered) */
+.strength-card {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 2px 8px -4px rgb(0 0 0 / .08);
+}
+.strength-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.strength-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.strength-label {
+  font-size: .8rem;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.strength-badge {
+  display: inline-block;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+.strength-card.strength-mastered .strength-badge {
+  background: #e6f9f2;
+  color: #0b704c;
+  border-color: #a7edd5;
+}
+.strength-card.strength-strong .strength-badge {
+  background: #e8f4fd;
+  color: #1765ad;
+  border-color: #b5daf8;
+}
+.strength-card.strength-building .strength-badge {
+  background: #fff8e6;
+  color: #946200;
+  border-color: #ffe699;
+}
+.strength-card.strength-fragile .strength-badge {
+  background: #fff0f0;
+  color: #b83232;
+  border-color: #ffd1d1;
+}
+.strength-value-box {
+  text-align: right;
+}
+.strength-score {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+.strength-trend {
+  font-size: .75rem;
+  font-weight: 700;
+}
+.strength-trend.trend-rising { color: #15803d; }
+.strength-trend.trend-falling { color: #b91c1c; }
+.strength-trend.trend-stable { color: var(--muted); }
+.strength-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: var(--bg);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.strength-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd66b 0%, #2bb39a 100%);
+  border-radius: 999px;
+  transition: width .4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.strength-resilience-hint {
+  margin: 0;
+  font-size: .75rem;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 /* Day Action Card */
