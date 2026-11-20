@@ -52,6 +52,16 @@ export interface TaskRecord {
   deletedAt?: string | null;
 }
 
+export interface RewardRecord {
+  id: string; // completion log id: retries and cross-device sync converge on one reward
+  logId: string;
+  xp: number;
+  gold: number;
+  createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
+}
+
 export type NewTask = Pick<TaskRecord, 'title' | 'dueDate'>;
 export type TaskPatch = Partial<Pick<TaskRecord, 'title' | 'dueDate' | 'doneAt'>>;
 
@@ -86,6 +96,9 @@ export interface HabitRepo {
   listLogs(habitId: string): Promise<LogRecord[]>;
   addLog(input: NewLog): Promise<LogRecord>;
   removeLog(id: string): Promise<void>;
+  listRewards(): Promise<RewardRecord[]>;
+  addReward(input: Pick<RewardRecord, 'logId' | 'xp' | 'gold'>): Promise<RewardRecord>;
+  addCompletionWithReward(log: NewLog, reward: Pick<RewardRecord, 'xp' | 'gold'>): Promise<{ log: LogRecord; reward: RewardRecord }>;
   listTasks(): Promise<TaskRecord[]>;
   addTask(input: NewTask): Promise<TaskRecord>;
   updateTask(id: string, patch: TaskPatch): Promise<TaskRecord>;
@@ -96,12 +109,13 @@ export interface RepoState {
   habits: HabitRecord[];
   logs: LogRecord[];
   tasks?: TaskRecord[]; // absent in state saved before tasks existed
+  rewards?: RewardRecord[];
 }
 
-export type SyncEntity = 'habits' | 'habit_logs' | 'tasks';
+export type SyncEntity = 'habits' | 'habit_logs' | 'tasks' | 'rewards';
 export interface SyncItem {
   entity: SyncEntity;
-  record: HabitRecord | LogRecord | TaskRecord;
+  record: HabitRecord | LogRecord | TaskRecord | RewardRecord;
 }
 
 // Last-write-wins version of a record. A tombstone later than the last update is the version.
@@ -126,6 +140,7 @@ function isValidItem(item: SyncItem): boolean {
   if (item.entity === 'habits') return typeof record.name === 'string';
   if (item.entity === 'tasks') return typeof record.title === 'string';
   if (item.entity === 'habit_logs') return typeof record.habitId === 'string' && typeof record.logicalDate === 'string';
+  if (item.entity === 'rewards') return typeof record.logId === 'string' && typeof record.xp === 'number' && typeof record.gold === 'number';
   return false;
 }
 
@@ -144,7 +159,7 @@ export interface MemoryRepoOptions {
 
 export function createMemoryRepo(options: MemoryRepoOptions = {}): LocalRepo {
   const now = options.now ?? (() => new Date());
-  const state: RepoState & { tasks: TaskRecord[] } = { tasks: [], ...(options.seed ? structuredClone(options.seed) : { habits: [], logs: [] }) };
+  const state: RepoState & { tasks: TaskRecord[]; rewards: RewardRecord[] } = { tasks: [], rewards: [], ...(options.seed ? structuredClone(options.seed) : { habits: [], logs: [] }) };
   const listeners = new Set<() => void>();
   const save = () => {
     options.onChange?.(state);
@@ -199,8 +214,33 @@ export function createMemoryRepo(options: MemoryRepoOptions = {}): LocalRepo {
     async removeLog(id) {
       const log = state.logs.find((l) => l.id === id && !l.deletedAt);
       if (!log) throw new RangeError(`Unknown log: ${id}`);
-      log.deletedAt = now().toISOString();
+      const deletedAt = now().toISOString();
+      log.deletedAt = deletedAt;
+      const reward = state.rewards.find((r) => r.id === id && !r.deletedAt);
+      if (reward) reward.deletedAt = reward.updatedAt = deletedAt;
       save();
+    },
+    async listRewards() {
+      return state.rewards.filter((r) => !r.deletedAt).map((r) => ({ ...r }));
+    },
+    async addReward(input) {
+      const existing = state.rewards.find((r) => r.id === input.logId && !r.deletedAt);
+      if (existing) return { ...existing };
+      const at = now().toISOString();
+      const reward: RewardRecord = { ...input, id: input.logId, createdAt: at, updatedAt: at, deletedAt: null };
+      state.rewards.push(reward);
+      save();
+      return { ...reward };
+    },
+    async addCompletionWithReward(input, payout) {
+      liveHabit(input.habitId);
+      const at = now().toISOString();
+      const log: LogRecord = { ...input, id: uuidv7(now().getTime()), createdAt: at, deletedAt: null };
+      const reward: RewardRecord = { id: log.id, logId: log.id, ...payout, createdAt: at, updatedAt: at, deletedAt: null };
+      state.logs.push(log);
+      state.rewards.push(reward);
+      save();
+      return { log: { ...log }, reward: { ...reward } };
     },
     async listTasks() {
       return state.tasks.filter((t) => !t.deletedAt).map((t) => ({ ...t }));
@@ -228,19 +268,29 @@ export function createMemoryRepo(options: MemoryRepoOptions = {}): LocalRepo {
         ...state.habits.map((record) => ({ entity: 'habits' as const, record: structuredClone(record) })),
         ...state.logs.map((record) => ({ entity: 'habit_logs' as const, record: structuredClone(record) })),
         ...state.tasks.map((record) => ({ entity: 'tasks' as const, record: structuredClone(record) })),
+        ...state.rewards.map((record) => ({ entity: 'rewards' as const, record: structuredClone(record) })),
       ];
     },
     merge(items) {
       let applied = 0;
       for (const item of items) {
         if (!isValidItem(item)) continue;
-        const list = (item.entity === 'habits' ? state.habits : item.entity === 'tasks' ? state.tasks : state.logs) as SyncItem['record'][];
+        const list = (item.entity === 'habits' ? state.habits : item.entity === 'tasks' ? state.tasks : item.entity === 'rewards' ? state.rewards : state.logs) as SyncItem['record'][];
         const index = list.findIndex((r) => r.id === item.record.id);
         if (index === -1) {
           list.push(structuredClone(item.record));
           applied++;
         } else if (wins(item.record, list[index])) {
           list[index] = structuredClone(item.record);
+          applied++;
+        }
+      }
+      for (const log of state.logs) {
+        if (!log.deletedAt) continue;
+        const reward = state.rewards.find((r) => r.id === log.id && !r.deletedAt);
+        if (reward) {
+          reward.deletedAt = log.deletedAt;
+          reward.updatedAt = log.deletedAt;
           applied++;
         }
       }

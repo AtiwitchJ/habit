@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMemoryRepo, type NewHabit } from '../src/repo.ts';
-import { canLog, checkIn, clearDay, freezeDay, removeExcusedDay, skipDay, stepFor, undoCheckIn } from '../src/checkin.ts';
+import { canLog, checkIn, checkInWithReward, clearDay, freezeDay, removeExcusedDay, skipDay, stepFor, undoCheckIn } from '../src/checkin.ts';
 import { summarize } from '../src/summary.ts';
 
 const NOW = new Date('2026-10-30T10:00:00Z');
@@ -84,6 +84,17 @@ test('check-in preserves its optional note', async () => {
   const { repo, habit } = await setup(meditate);
   await checkIn(repo, habit, TODAY, TODAY, NOW, 'Felt focused');
   assert.equal((await repo.listLogs(habit.id))[0].note, 'Felt focused');
+});
+
+test('rewarded check-in awards once and persists reward with its completion', async () => {
+  const { repo, habit } = await setup(meditate);
+  assert.deepEqual(await checkInWithReward(repo, habit, TODAY, TODAY, NOW), { xp: 10, gold: 3 });
+  assert.equal(await checkInWithReward(repo, habit, TODAY, TODAY, NOW), undefined);
+  const logs = await repo.listLogs(habit.id);
+  const rewards = await repo.listRewards();
+  assert.equal(logs.length, 1);
+  assert.equal(rewards.length, 1);
+  assert.equal(rewards[0].logId, logs[0].id);
 });
 
 test('clearDay removes every completion on that date only', async () => {

@@ -1,8 +1,9 @@
 import { daysBetween, type LogicalDate } from './logical-date.ts';
 import type { HabitRecord, HabitRepo } from './repo.ts';
+import { calculateGoldGain, calculateXpGain } from './gamification.ts';
 
 export const RETRO_DAYS = 30;
-const pendingCheckIns = new WeakMap<HabitRepo, Promise<void>>();
+const pendingCheckIns = new WeakMap<HabitRepo, Promise<unknown>>();
 
 // One tap adds this much. Boolean habits: 1. Quantitative: the habit's own step, else about a tenth of the target.
 export function stepFor(habit: Pick<HabitRecord, 'kind' | 'target' | 'step'>): number {
@@ -30,6 +31,37 @@ export async function checkIn(
   try {
     await current;
   } finally {
+    if (pendingCheckIns.get(repo) === current) pendingCheckIns.delete(repo);
+  }
+}
+
+export async function checkInWithReward(
+  repo: HabitRepo,
+  habit: HabitRecord,
+  date: LogicalDate,
+  today: LogicalDate,
+  now: Date = new Date(),
+  note?: string,
+  amount: number = stepFor(habit),
+): Promise<{ xp: number; gold: number } | undefined> {
+  if (!canLog(habit, date, today)) throw new RangeError(`Cannot log ${date} for habit ${habit.id}`);
+  const previous = pendingCheckIns.get(repo) ?? Promise.resolve();
+  const current = previous.catch(() => {}).then(async () => {
+    const logs = await repo.listLogs(habit.id);
+    const completed = logs.filter((log) => !log.deletedAt && log.kind === 'complete' && log.logicalDate === date)
+      .reduce((sum, log) => sum + log.value, 0);
+    const value = Math.min(amount, habit.target - completed);
+    if (value <= 0) return undefined;
+    const xp = calculateXpGain('easy');
+    const gold = calculateGoldGain('easy');
+    await repo.addCompletionWithReward({
+      habitId: habit.id, logicalDate: date, kind: 'complete', value, note,
+      occurredAt: now.toISOString(), isRetroactive: date < today,
+    }, { xp, gold });
+    return { xp, gold };
+  });
+  pendingCheckIns.set(repo, current);
+  try { return await current; } finally {
     if (pendingCheckIns.get(repo) === current) pendingCheckIns.delete(repo);
   }
 }

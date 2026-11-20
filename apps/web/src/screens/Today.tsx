@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   canLog,
-  checkIn,
+  checkInWithReward,
   clearDay,
   clearRelapse,
   freezeDay,
@@ -14,12 +14,14 @@ import {
 import { heatmapLevels } from '@habit/core/heatmap';
 import { addDays, startOfIsoWeek, type LogicalDate } from '@habit/core/logical-date';
 import type { HabitRecord, LogRecord } from '@habit/core/repo';
+import { applyXp, createDefaultPlayerProfile } from '@habit/core/gamification';
 import { summarize } from '@habit/core/summary';
 import { HabitDetailModal } from '../components/HabitDetailModal.tsx';
 import { HabitRow } from '../components/HabitRow.tsx';
 import { Heatmap } from '../components/Heatmap.tsx';
 import { Calendar } from '../components/Calendar.tsx';
 import { Tasks } from '../components/Tasks.tsx';
+import { PlayerHud } from '../components/PlayerHud.tsx';
 import { repo } from '../repo-local.ts';
 
 export function Today({
@@ -33,6 +35,8 @@ export function Today({
 }) {
   const [habits, setHabits] = useState<HabitRecord[]>([]);
   const [logs, setLogs] = useState<Record<string, LogRecord[]>>({});
+  const [rewards, setRewards] = useState<{ xp: number; gold: number }[]>([]);
+  const [rewardMessage, setRewardMessage] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [offset, setOffset] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -49,6 +53,7 @@ export function Today({
     const entries = await Promise.all(list.map(async (habit) => [habit.id, await repo.listLogs(habit.id)] as const));
     setHabits(list);
     setLogs(Object.fromEntries(entries));
+    setRewards(await repo.listRewards());
     setLoaded(true);
   }, []);
 
@@ -72,6 +77,15 @@ export function Today({
       running.current = false;
     }
   };
+
+  const rewardedCheckIn = async (habit: HabitRecord, note?: string, amount?: number) => {
+    const reward = await checkInWithReward(repo, habit, date, today, new Date(), note, amount);
+    setRewardMessage(reward ? `Earned ${reward.xp} XP and ${reward.gold} Gold` : '');
+  };
+
+  const totalXp = rewards.reduce((sum, reward) => sum + reward.xp, 0);
+  const totalGold = rewards.reduce((sum, reward) => sum + reward.gold, 0);
+  const player = { ...applyXp(createDefaultPlayerProfile('local-player'), totalXp).updatedPlayer, gold: totalGold };
 
   const activeHabits = useMemo(() => habits.filter((h) => !h.archivedAt), [habits]);
   const archivedHabits = useMemo(() => habits.filter((h) => !!h.archivedAt), [habits]);
@@ -115,8 +129,8 @@ export function Today({
         onOpenDetail={() => setDetailHabit(habit)}
         onToggle={() => run(() => (habit.quit
           ? (summary.done ? relapse(repo, habit, date, today) : clearRelapse(repo, habit, date))
-          : summary.done ? clearDay(repo, habit, date) : checkIn(repo, habit, date, today)))}
-        onPlus={() => run(() => checkIn(repo, habit, date, today))}
+          : summary.done ? clearDay(repo, habit, date) : rewardedCheckIn(habit)))}
+        onPlus={() => run(() => rewardedCheckIn(habit))}
         onMinus={() => run(() => undoCheckIn(repo, habit, date))}
       />
     );
@@ -124,6 +138,8 @@ export function Today({
 
   return (
     <>
+      <PlayerHud player={player} />
+      <p role="status" aria-live="polite">{rewardMessage}</p>
       <nav className="view-toggle" aria-label="Habit views">
         <button type="button" className={view === 'habits' ? 'active' : ''} aria-pressed={view === 'habits'} onClick={() => setView('habits')}>Habits</button>
         <button type="button" className={view === 'journal' ? 'active' : ''} aria-pressed={view === 'journal'} onClick={() => setView('journal')}>Journal</button>
@@ -239,11 +255,11 @@ export function Today({
               }
               return summary.done
                 ? clearDay(repo, detailHabit, date)
-                : checkIn(repo, detailHabit, date, today, new Date(), note);
+                : rewardedCheckIn(detailHabit, note);
             })
           }
-          onPlus={(note) => run(() => checkIn(repo, detailHabit, date, today, new Date(), note))}
-          onTimerLog={(minutes) => run(() => checkIn(repo, detailHabit, date, today, new Date(), undefined, minutes))}
+          onPlus={(note) => run(() => rewardedCheckIn(detailHabit, note))}
+          onTimerLog={(minutes) => run(() => rewardedCheckIn(detailHabit, undefined, minutes))}
           onMinus={() => run(() => undoCheckIn(repo, detailHabit, date))}
           onSkip={(note) => run(() => skipDay(repo, detailHabit, date, today, note))}
           onFreeze={(note) => run(() => freezeDay(repo, detailHabit, date, today, note))}

@@ -61,6 +61,42 @@ test('storage repo persists across instances', async () => {
   assert.equal((await second.listLogs(habit.id)).length, 1);
 });
 
+test('reward ledger is idempotent by check-in log id and syncs as a record', async () => {
+  const repo = createMemoryRepo({ now: () => NOW });
+  const habit = await repo.addHabit(water);
+  const log = await repo.addLog(logInput(habit.id));
+  const reward = await repo.addReward({ logId: log.id, xp: 10, gold: 3 });
+  const duplicate = await repo.addReward({ logId: log.id, xp: 10, gold: 3 });
+  assert.deepEqual(duplicate, reward);
+  assert.deepEqual(await repo.listRewards(), [reward]);
+  assert.ok(repo.snapshot().some((item) => item.entity === 'rewards' && item.record.id === log.id));
+});
+
+test('completion with reward writes both records in one repository change', async () => {
+  const states: unknown[] = [];
+  const repo = createMemoryRepo({ now: () => NOW, onChange: (s) => states.push(structuredClone(s)) });
+  const habit = await repo.addHabit(water);
+  const before = states.length;
+  const { log, reward } = await repo.addCompletionWithReward(logInput(habit.id), { xp: 10, gold: 3 });
+  assert.equal(reward.id, log.id);
+  assert.equal(states.length, before + 1);
+  assert.equal((await repo.listLogs(habit.id)).length, 1);
+  assert.equal((await repo.listRewards()).length, 1);
+  await repo.removeLog(log.id);
+  assert.deepEqual(await repo.listRewards(), []);
+});
+
+test('syncing an undone completion tombstones its reward too', async () => {
+  const source = createMemoryRepo({ now: () => NOW });
+  const habit = await source.addHabit(water);
+  const { log } = await source.addCompletionWithReward(logInput(habit.id), { xp: 10, gold: 3 });
+  const target = createMemoryRepo({ seed: { habits: await source.listHabits(), logs: source.snapshot().filter((x) => x.entity === 'habit_logs').map((x) => x.record as never) } });
+  await target.addReward({ logId: log.id, xp: 10, gold: 3 });
+  await source.removeLog(log.id);
+  target.merge(source.snapshot().filter((item) => item.entity === 'habit_logs'));
+  assert.deepEqual(await target.listRewards(), []);
+});
+
 test('storage repo starts empty on corrupt or wrong-shape data', async () => {
   for (const bad of ['{not json', '"hello"', '{"habits":1,"logs":[]}']) {
     const repo = createStorageRepo(stubStorage({ 'habit:v1': bad }), () => NOW);
