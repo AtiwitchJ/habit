@@ -44,6 +44,7 @@ export function EditHabit({
     'count' in habit.schedule ? habit.schedule.count : 3,
   );
   const [quit, setQuit] = useState(habit.quit ?? false);
+  const [inSupplements, setInSupplements] = useState(habit.group === 'supplements');
   const [startDate, setStartDate] = useState(habit.startDate);
   const [reminderTimes, setReminderTimes] = useState<string[]>(habit.reminderTimes ?? (habit.reminderTime ? [habit.reminderTime] : []));
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +97,7 @@ export function EditHabit({
       step: kind === 'quantitative' && step !== '' ? Number(step) : undefined,
       schedule: quit ? { type: 'daily' } : computeSchedule(),
       startDate,
+      group: inSupplements ? 'supplements' : undefined,
       reminderTime: reminderTimes[0],
       reminderTimes: [...reminderTimes].sort(),
     });
@@ -122,6 +124,8 @@ export function EditHabit({
         <span>Name</span>
         <input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       </label>
+
+      <label className="field"><input type="checkbox" checked={inSupplements} onChange={(e) => setInSupplements(e.target.checked)} /> In Supplements group</label>
 
       <label className="field">
         <span>Icon (one emoji)</span>

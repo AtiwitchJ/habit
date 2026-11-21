@@ -99,8 +99,9 @@ export function Today({
     () => displayedHabits.map((habit) => ({ habit, summary: summarize(habit, logs[habit.id] ?? [], date, today) })),
     [displayedHabits, logs, date, today],
   );
-  const dueRows = rows.filter((row) => row.summary.due);
-  const otherRows = rows.filter((row) => !row.summary.due);
+  const supplementRows = viewArchived ? [] : rows.filter((row) => row.habit.group === 'supplements');
+  const dueRows = rows.filter((row) => (viewArchived || row.habit.group !== 'supplements') && row.summary.due);
+  const otherRows = rows.filter((row) => (viewArchived || row.habit.group !== 'supplements') && !row.summary.due);
   const selected = habits.find((habit) => habit.id === selectedId) ?? displayedHabits[0];
   const cells = selected
     ? heatmapLevels(
@@ -214,7 +215,13 @@ export function Today({
         </div>
       ) : (
         <>
-          {dueRows.length > 0 && dueRows.every((row) => row.summary.done) && (
+          {supplementRows.length > 0 && (
+            <details className="card">
+              <summary>อาหารเสริม · {supplementRows.filter((row) => row.summary.due && row.summary.done).length}/{supplementRows.filter((row) => row.summary.due).length} วันนี้</summary>
+              <ul className="rows">{supplementRows.map(renderRow)}</ul>
+            </details>
+          )}
+          {dueRows.length > 0 && dueRows.every((row) => row.summary.done) && supplementRows.every((row) => row.summary.done) && (
             <p className="all-done">All done for today. Nice work!</p>
           )}
           <ul className="rows">{dueRows.map(renderRow)}</ul>

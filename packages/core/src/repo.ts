@@ -23,6 +23,7 @@ export interface HabitRecord {
   step?: number; // amount one tap adds (quantitative); unset = about a tenth of target
   archivedAt?: string | null;
   order?: number;
+  group?: 'supplements';
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -84,6 +85,7 @@ export type HabitPatch = Partial<
     | 'step'
     | 'archivedAt'
     | 'order'
+    | 'group'
   >
 >;
 
@@ -137,7 +139,7 @@ export type LocalRepo = HabitRepo & SyncAccess;
 function isValidItem(item: SyncItem): boolean {
   const record = item?.record as unknown as Record<string, unknown> | undefined;
   if (!record || typeof record.id !== 'string' || !record.id || typeof record.createdAt !== 'string') return false;
-  if (item.entity === 'habits') return typeof record.name === 'string';
+  if (item.entity === 'habits') return typeof record.name === 'string' && (record.group === undefined || record.group === 'supplements');
   if (item.entity === 'tasks') return typeof record.title === 'string';
   if (item.entity === 'habit_logs') return typeof record.habitId === 'string' && typeof record.logicalDate === 'string';
   if (item.entity === 'rewards') return typeof record.logId === 'string' && typeof record.xp === 'number' && typeof record.gold === 'number';

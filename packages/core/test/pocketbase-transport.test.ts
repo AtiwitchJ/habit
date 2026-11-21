@@ -64,6 +64,17 @@ test('push creates rows with owner, entity, cid, version and full data', async (
   assert.deepEqual(pb.rows[0].data, h);
 });
 
+test('supplements group metadata round-trips through PocketBase record JSON', async () => {
+  const pb = new FakePb();
+  const transport = createPocketBaseTransport(pb, 'user1');
+  const repo = createMemoryRepo();
+  const h = await repo.addHabit({ ...water, group: 'supplements' });
+
+  await transport.push(repo.snapshot());
+
+  assert.deepEqual((await transport.pull(null, 100)).map(({ record }) => record), [h]);
+});
+
 test('rewards push and pull through PocketBase without duplicating on replay', async () => {
   const pb = new FakePb();
   const transport = createPocketBaseTransport(pb, 'user1');

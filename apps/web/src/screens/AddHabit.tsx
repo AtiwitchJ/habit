@@ -48,6 +48,7 @@ export function AddHabit({
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inSupplements, setInSupplements] = useState(false);
 
   // Custom fallback form state
   const [customDraft, setCustomDraft] = useState<CustomDraft>({
@@ -116,6 +117,7 @@ export function AddHabit({
         startDate: today,
         templateId: preset.id,
         reminderTime: preset.reminderTime,
+        ...(inSupplements ? { group: 'supplements' as const } : {}),
       });
       onDone();
     } catch (e) {
@@ -146,6 +148,7 @@ export function AddHabit({
             startDate: today,
             templateId: preset.id,
             reminderTime: preset.reminderTime,
+            ...(inSupplements ? { group: 'supplements' as const } : {}),
           });
         }),
       );
@@ -187,6 +190,7 @@ export function AddHabit({
             : undefined,
         schedule: customDraft.schedule,
         startDate: customDraft.startDate,
+        ...(inSupplements ? { group: 'supplements' as const } : {}),
       });
       onDone();
     } catch (e) {
@@ -210,6 +214,8 @@ export function AddHabit({
             กลับไปเลือกกิจกรรม
           </button>
         </div>
+
+        <label className="field"><input type="checkbox" checked={inSupplements} onChange={(e) => setInSupplements(e.target.checked)} /> Add to Supplements group</label>
 
         <label className="field">
           <span>ชื่อนิสัย</span>
@@ -316,6 +322,8 @@ export function AddHabit({
           ปิด
         </button>
       </div>
+
+      <label className="field"><input type="checkbox" checked={inSupplements} onChange={(e) => setInSupplements(e.target.checked)} /> Add to Supplements group</label>
 
       {error && <p className="banner">{error}</p>}
 

@@ -56,6 +56,7 @@ CREATE TABLE habits (
   icon            TEXT,                                          -- one emoji; NULL = none
   color           TEXT CHECK (color IN ('green', 'teal', 'blue', 'purple', 'pink', 'red', 'orange', 'yellow')),  -- NULL = green
   sort_order      REAL NOT NULL DEFAULT 0,
+  group_name      TEXT CHECK (group_name IS NULL OR group_name = 'supplements'),
   archived_at     TEXT,
   field_hlc       TEXT NOT NULL DEFAULT '{}',
   hlc             TEXT NOT NULL,

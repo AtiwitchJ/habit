@@ -72,6 +72,13 @@ test('merge skips malformed items', async () => {
   assert.deepEqual(repo.snapshot(), []);
 });
 
+test('merge accepts supplements group and rejects unsupported groups', async () => {
+  const repo = createMemoryRepo();
+  assert.equal(repo.merge([{ entity: 'habits', record: habit({ group: 'supplements' }) }]), 1);
+  assert.equal(repo.merge([{ entity: 'habits', record: habit({ id: 'h2', group: 'other' as 'supplements' }) }]), 0);
+  assert.equal((await repo.listHabits())[0].group, 'supplements');
+});
+
 test('subscribe fires on local writes and applied merges, not on no-op merges', async () => {
   const repo = createMemoryRepo({ now: () => T1 });
   let calls = 0;
