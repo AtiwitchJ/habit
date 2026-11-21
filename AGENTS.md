@@ -132,7 +132,7 @@ When planning upcoming sprints, reference these identified missing gaps:
    * **Check-in Notes:** Optional journal/note per check-in log.
 3. **Stage 2 Gamification:**
    * Streak Milestones (7, 21, 30, 100 days) + Badges.
-   * Daily & Weekly Completion Rate statistics.
+   * Aggregate Habit Statistics: week / month / record views with due, completed, completion rate, and active days; distinguish missed, not-due, skipped, and frozen dates. Reuse existing logs, `isDue`, and core calendar/statistics; defer schema changes unless snapshot history becomes a requirement.
    * Confetti / Sound celebration on daily goal completion.
 4. **Stage 3 Thai Localization & Starter Packs:**
    * Bilingual UI (Thai / English toggle).
@@ -143,3 +143,7 @@ When planning upcoming sprints, reference these identified missing gaps:
    * Dark Mode theme toggle.
    * Web Notifications for habit `reminderTime`.
    * Data Export / Import (JSON / CSV backup).
+
+## 6. Git Delivery
+
+- Push small, verified changes frequently when the configured remote is writable; do not wait to batch unrelated work. If commit or push is blocked, state the exact blocker.

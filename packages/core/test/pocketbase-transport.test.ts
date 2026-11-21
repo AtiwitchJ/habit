@@ -64,6 +64,20 @@ test('push creates rows with owner, entity, cid, version and full data', async (
   assert.deepEqual(pb.rows[0].data, h);
 });
 
+test('rewards push and pull through PocketBase without duplicating on replay', async () => {
+  const pb = new FakePb();
+  const transport = createPocketBaseTransport(pb, 'user1');
+  const reward = { id: 'log1', logId: 'log1', xp: 10, gold: 2, createdAt: '2026-10-30T10:00:00.000Z' };
+  const item = { entity: 'rewards' as const, record: reward };
+
+  await transport.push([item]);
+  await transport.push([item]);
+
+  assert.equal(pb.rows.length, 1);
+  assert.equal(pb.rows[0].entity, 'rewards');
+  assert.deepEqual((await transport.pull(null, 100)).map(({ entity, record }) => ({ entity, record })), [item]);
+});
+
 test('push updates only when local version is newer', async () => {
   const pb = new FakePb();
   const transport = createPocketBaseTransport(pb, 'user1');
